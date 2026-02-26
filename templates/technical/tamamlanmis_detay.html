@@ -1,0 +1,65 @@
+{% extends "base.html" %}
+{% block title %}Tamamlanmış Cihaz #{{ cihaz.id }} - SER-CRM{% endblock %}
+{% block content %}
+<div class="container page">
+    <div class="page-header">
+        <h1>Tamamlanmış Cihaz #{{ cihaz.id }}</h1>
+        <div>
+            <a href="{{ url_for('technical.kargolandi') }}" class="btn btn-outline">← Listeye dön</a>
+        </div>
+    </div>
+    <div class="card">
+        <div class="detail-header-row">
+            <h2 class="detail-title">
+                <span class="detail-title-main">{{ cihaz.musteri_adi }}</span>
+                <span class="pill pill-muted">Tamamlanmış cihaz #{{ cihaz.id }}</span>
+            </h2>
+            <span class="pill pill-success">
+                {{ cihaz.DURUMLAR.get(cihaz.durum, cihaz.durum) }}
+            </span>
+        </div>
+
+        {% if first_seen_date %}
+        <div class="serial-warning">
+            Bu cihaz daha önce {{ first_seen_date.strftime('%d.%m.%Y') }} tarihinde gelmiştir.
+        </div>
+        {% endif %}
+
+        <div class="detail-grid">
+            <section class="detail-section">
+                <h3>Firma bilgileri</h3>
+                <table class="detail-table">
+                    <tr><th>Firma adı</th><td>{{ cihaz.musteri_adi }}</td></tr>
+                    <tr><th>Yetkili kişi</th><td>{{ cihaz.customer.yetkili_kisi if cihaz.customer and cihaz.customer.yetkili_kisi else '-' }}</td></tr>
+                    <tr><th>Lokasyon / Proje</th><td>{{ cihaz.customer.lokasyon_proje if cihaz.customer and cihaz.customer.lokasyon_proje else 'Lokasyon / proje yok' }}</td></tr>
+                    <tr><th>Firma arıza şikayeti</th><td>{{ cihaz.aciklama or '-' }}</td></tr>
+                </table>
+            </section>
+
+            <section class="detail-section">
+                <h3>Cihaz bilgileri</h3>
+                <table class="detail-table">
+                    <tr><th>Cihaz markası</th><td>{{ cihaz.cihaz_marka or cihaz.cihaz_bilgisi }}</td></tr>
+                    <tr><th>Model</th><td>{{ cihaz.cihaz_model or '-' }}</td></tr>
+                    <tr><th>Seri numarası</th><td>{{ cihaz.seri_no or '-' }}</td></tr>
+                </table>
+            </section>
+        </div>
+        {% include 'includes/surec_tarihleri.html' %}
+
+        <h3 class="form-section-title">Yapılan arızalar ({{ cihaz.faults.count() }} adet)</h3>
+        {% if cihaz.faults.count() %}
+        <ul class="fault-list">
+            {% for f in cihaz.faults %}
+            <li>
+                <span class="fault-text">{{ f.aciklama }}</span>
+                <span class="badge badge-success">Yapıldı</span>
+            </li>
+            {% endfor %}
+        </ul>
+        {% else %}
+        <p class="empty">Bu cihazda kayıtlı arıza yok.</p>
+        {% endif %}
+    </div>
+</div>
+{% endblock %}

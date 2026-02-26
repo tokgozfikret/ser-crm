@@ -1,0 +1,42 @@
+{% extends "base.html" %}
+{% from 'includes/pagination.html' import render_pagination %}
+{% block title %}Gönderim geçmişi - SER-CRM{% endblock %}
+{% block content %}
+<div class="container page">
+    <div class="page-header">
+        <h1>Firmaya gönderim geçmişi</h1>
+        <a href="{{ url_for('sales.index') }}" class="btn btn-outline">← Satış paneline dön</a>
+    </div>
+    <div class="card">
+        {% if pagination.items %}
+        <div class="table-wrap">
+            <table class="data-table">
+                <thead>
+                    <tr>
+                        <th>Tarih</th>
+                        <th>Ürün</th>
+                        <th>Miktar</th>
+                        <th>Firma</th>
+                        <th>Telefon</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for s in pagination.items %}
+                    <tr>
+                        <td>{{ s.created_at.strftime('%d.%m.%Y %H:%M') }}</td>
+                        <td>{{ s.inventory.urun_adi }}</td>
+                        <td>{{ s.miktar }} {{ s.inventory.birim }}</td>
+                        <td>{{ s.musteri_adi }}</td>
+                        <td>{{ s.musteri_telefon or '—' }}</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        {{ render_pagination(pagination, 'sales.gonderim_gecmisi', info_text='kayıt') }}
+        {% else %}
+        <p class="empty">Henüz firmaya gönderim kaydı yok.</p>
+        {% endif %}
+    </div>
+</div>
+{% endblock %}

@@ -1,0 +1,58 @@
+{% extends "base.html" %}
+{% block title %}Cihaz #{{ cihaz.id }} düzenle - SER-CRM{% endblock %}
+{% block content %}
+<div class="container page">
+    <div class="page-header">
+        <h1>Cihaz #{{ cihaz.id }} düzenle</h1>
+        <a href="{{ url_for('secretary.cihaz_detay', id=cihaz.id) }}" class="btn btn-outline">← Detaya dön</a>
+    </div>
+    <div class="card">
+        <p class="form-hint">Mevcut durum: <span class="badge badge-{{ cihaz.durum }}">{{ cihaz.DURUMLAR.get(cihaz.durum, cihaz.durum) }}</span></p>
+        <form method="post" action="{{ url_for('secretary.cihaz_duzenle', id=cihaz.id) }}" class="form-modern">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+            <h3 class="form-section-title">Firma bilgileri</h3>
+            <div class="form-group">
+                <label for="musteri_adi">Firma adı *</label>
+                <input type="text" id="musteri_adi" name="musteri_adi" required value="{{ cihaz.musteri_adi }}" placeholder="Ad Soyad veya Firma">
+            </div>
+            <div class="form-group">
+                <label for="musteri_telefon">Firma telefon</label>
+                <input type="text" id="musteri_telefon" name="musteri_telefon" value="{{ cihaz.musteri_telefon or '' }}" placeholder="05xx xxx xx xx">
+            </div>
+            <div class="form-group">
+                <label for="musteri_email">Firma e-posta</label>
+                <input type="email" id="musteri_email" name="musteri_email" value="{{ cihaz.musteri_email or '' }}" placeholder="ornek@email.com">
+            </div>
+            <div class="form-group">
+                <label for="musteri_adres">Firma adres</label>
+                <textarea id="musteri_adres" name="musteri_adres" rows="2" placeholder="Açık adres bilgisi...">{{ cihaz.musteri_adres or '' }}</textarea>
+            </div>
+            <div class="form-group">
+                <label for="musteri_lokasyon">Lokasyon / Proje</label>
+                <input type="text" id="musteri_lokasyon" name="musteri_lokasyon" value="{{ cihaz.customer.lokasyon_proje if cihaz.customer and cihaz.customer.lokasyon_proje else '' }}" placeholder="Örn: Ankara Merkez Projesi">
+            </div>
+            <h3 class="form-section-title">Cihaz bilgileri</h3>
+            <div class="form-group">
+                <label for="cihaz_marka">Cihaz markası *</label>
+                <input type="text" id="cihaz_marka" name="cihaz_marka" required value="{{ cihaz.cihaz_marka or cihaz.cihaz_bilgisi }}" placeholder="Örn: Motorola">
+            </div>
+            <div class="form-group">
+                <label for="cihaz_model">Model</label>
+                <input type="text" id="cihaz_model" name="cihaz_model" value="{{ cihaz.cihaz_model or '' }}" placeholder="Örn: SL1600">
+            </div>
+            <div class="form-group">
+                <label for="seri_no">Seri numarası</label>
+                <input type="text" id="seri_no" name="seri_no" value="{{ cihaz.seri_no or '' }}" placeholder="Cihaz seri numarası">
+            </div>
+            <div class="form-group">
+                <label for="aciklama">Açıklama / Firma şikayeti</label>
+                <textarea id="aciklama" name="aciklama" rows="3" placeholder="Cihazda ne şikayet var, notlar...">{{ cihaz.aciklama or '' }}</textarea>
+            </div>
+            <div class="form-actions">
+                <button type="submit" class="btn btn-primary">Kaydet</button>
+                <a href="{{ url_for('secretary.cihaz_detay', id=cihaz.id) }}" class="btn btn-outline">İptal</a>
+            </div>
+        </form>
+    </div>
+</div>
+{% endblock %}

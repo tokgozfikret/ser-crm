@@ -1,0 +1,37 @@
+<section class="detail-section-block surec-tarihleri-block">
+    <h3 class="section-title">Süreç tarihleri</h3>
+    <div class="surec-tarihleri-grid">
+        <div class="surec-item">
+            <span class="surec-label">1. Sekreterliğe giriş tarihi</span>
+            <span class="surec-value">{{ cihaz.created_at.strftime('%d.%m.%Y %H:%M') if cihaz.created_at else '—' }}</span>
+        </div>
+        <div class="surec-item">
+            <span class="surec-label">2. Ön inceleme için teknik servise gönderilme</span>
+            <span class="surec-value">{{ cihaz.teknik_servise_gonderildi_at.strftime('%d.%m.%Y %H:%M') if cihaz.teknik_servise_gonderildi_at else '—' }}</span>
+        </div>
+        <div class="surec-item">
+            <span class="surec-label">3. Ön inceleme tamamlanma (teknik servis)</span>
+            <span class="surec-value">{{ cihaz.on_inceleme_sekreterlikte_at.strftime('%d.%m.%Y %H:%M') if cihaz.on_inceleme_sekreterlikte_at else '—' }}</span>
+        </div>
+        <div class="surec-item">
+            <span class="surec-label">4. Raporun firma onayına gönderilmesi</span>
+            <span class="surec-value">{{ cihaz.on_inceleme_raporu_musteriye_at.strftime('%d.%m.%Y %H:%M') if cihaz.on_inceleme_raporu_musteriye_at else '—' }}</span>
+        </div>
+        <div class="surec-item">
+            <span class="surec-label">5. Firma onay/red tarihi</span>
+            <span class="surec-value">{{ cihaz.musteri_onay_tarihi.strftime('%d.%m.%Y %H:%M') if cihaz.musteri_onay_tarihi else '—' }}{% if cihaz.musteri_onay_tarihi and cihaz.musteri_onay_durumu %} <span class="surec-badge {% if cihaz.musteri_onay_durumu == 'onaylandi' %}surec-badge-ok{% else %}surec-badge-no{% endif %}">{{ 'Onaylandı' if cihaz.musteri_onay_durumu == 'onaylandi' else 'Reddedildi' }}</span>{% endif %}</span>
+        </div>
+        <div class="surec-item">
+            <span class="surec-label">6. Tamir için teknik servise gönderilme</span>
+            <span class="surec-value">{% if cihaz.musteri_onay_durumu == 'onaylandi' %}{{ cihaz.teknik_servise_tamir_icin_at.strftime('%d.%m.%Y %H:%M') if cihaz.teknik_servise_tamir_icin_at else '—' }}{% else %}—{% endif %}</span>
+        </div>
+        <div class="surec-item">
+            <span class="surec-label">7. Tamirin tamamlanma tarihi (teknik servis)</span>
+            <span class="surec-value">{{ cihaz.arizalar_tamamlandi_at.strftime('%d.%m.%Y %H:%M') if cihaz.arizalar_tamamlandi_at else '—' }}</span>
+        </div>
+        <div class="surec-item">
+            <span class="surec-label">8. Firmaya iade / Kargoya verilme</span>
+            <span class="surec-value">{{ cihaz.kargolandi_at.strftime('%d.%m.%Y %H:%M') if cihaz.kargolandi_at else '—' }}{% if cihaz.kargolandi_at and cihaz.musteri_onay_durumu == 'onaylanmadi' %} <span class="surec-badge surec-badge-return">İade</span>{% elif cihaz.kargolandi_at %} <span class="surec-badge surec-badge-ship">Kargo</span>{% endif %}</span>
+        </div>
+    </div>
+</section>

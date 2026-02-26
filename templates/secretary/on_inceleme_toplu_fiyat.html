@@ -1,0 +1,147 @@
+{% extends "base.html" %}
+{% block title %}Ön İnceleme – Toplu Fiyat Girişi - SER-CRM{% endblock %}
+{% block content %}
+<div class="container page">
+    <div class="page-header">
+        <h1>Ön İnceleme Raporu – Toplu Fiyat Girişi</h1>
+        <a href="{{ url_for('secretary.index', tab=return_tab, page=return_page, q=return_q, sort=return_sort, order=return_order) }}" class="btn btn-outline">← Geri dön</a>
+    </div>
+    <div class="card">
+        <p class="form-hint">{{ cihazlar|length }} cihaz seçildi. Her cihaz için arıza fiyatlarını veya tahmini toplam fiyatı girin. Firma başına tek mail gönderilecektir.</p>
+        <form method="post" action="{{ url_for('secretary.on_inceleme_toplu_gonder') }}" id="toplu-rapor-form" class="rapor-toplu-form">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+            <input type="hidden" name="return_tab" value="{{ return_tab }}">
+            <input type="hidden" name="return_page" value="{{ return_page }}">
+            <input type="hidden" name="return_q" value="{{ return_q }}">
+            <input type="hidden" name="return_sort" value="{{ return_sort }}">
+            <input type="hidden" name="return_order" value="{{ return_order }}">
+            {% for c in cihazlar %}
+            <input type="hidden" name="rapor_cihaz_id" value="{{ c.id }}">
+            <div class="cihaz-fiyat-blok" data-cihaz-id="{{ c.id }}">
+                <h3 class="cihaz-blok-baslik">{{ c.cihaz_marka or c.cihaz_bilgisi or '–' }} {% if c.cihaz_model %}– {{ c.cihaz_model }}{% endif %} {% if c.seri_no %}(Seri: {{ c.seri_no }}){% endif %}</h3>
+                <p class="cihaz-blok-musteri"><small>Firma: {{ c.musteri_adi }}</small></p>
+                <div class="fault-fiyat-list">
+                    {% for f in c.faults.order_by('id') %}
+                    <div class="fault-fiyat-row">
+                        <label for="fault-fiyat-{{ f.id }}">{{ f.aciklama[:80] }}{% if f.aciklama|length > 80 %}...{% endif %}</label>
+                        <input type="number" id="fault-fiyat-{{ f.id }}" name="fault_fiyat_{{ f.id }}" step="0.01" min="0" required placeholder="0,00" class="fault-price-input" data-cihaz-id="{{ c.id }}">
+                        <select name="fault_para_birimi_{{ f.id }}" class="fault-para-birimi-select">
+                            <option value="TL" {% if (f.para_birimi or c.on_inceleme_para_birimi or 'TL') == 'TL' %}selected{% endif %}>TL (₺)</option>
+                            <option value="USD" {% if (f.para_birimi or '') == 'USD' %}selected{% endif %}>USD ($)</option>
+                            <option value="EUR" {% if (f.para_birimi or '') == 'EUR' %}selected{% endif %}>EUR (€)</option>
+                            <option value="GBP" {% if (f.para_birimi or '') == 'GBP' %}selected{% endif %}>GBP (£)</option>
+                        </select>
+                    </div>
+                    {% endfor %}
+                    {% if not c.faults.count() %}
+                    <div class="fault-fiyat-row">
+                        <label for="on-inceleme-fiyat-{{ c.id }}">Genel tahmini fiyat</label>
+                        <input type="number" id="on-inceleme-fiyat-{{ c.id }}" name="on_inceleme_fiyat_{{ c.id }}" step="0.01" min="0" required placeholder="0,00" class="genel-fiyat-input" data-cihaz-id="{{ c.id }}">
+                        <select name="on_inceleme_para_birimi_{{ c.id }}" class="fault-para-birimi-select">
+                            <option value="TL" {% if (c.on_inceleme_para_birimi or 'TL') == 'TL' %}selected{% endif %}>TL (₺)</option>
+                            <option value="USD" {% if (c.on_inceleme_para_birimi or '') == 'USD' %}selected{% endif %}>USD ($)</option>
+                            <option value="EUR" {% if (c.on_inceleme_para_birimi or '') == 'EUR' %}selected{% endif %}>EUR (€)</option>
+                            <option value="GBP" {% if (c.on_inceleme_para_birimi or '') == 'GBP' %}selected{% endif %}>GBP (£)</option>
+                        </select>
+                    </div>
+                    {% endif %}
+                </div>
+                <p class="fiyat-toplam"><strong>Cihaz toplamı:</strong> <span id="toplam-{{ c.id }}" class="toplam-deger">0,00</span></p>
+            </div>
+            {% endfor %}
+            <div class="form-actions" style="margin-top:1.5rem;">
+                <button type="submit" class="btn btn-primary">Raporları firmaya gönder</button>
+                <a href="{{ url_for('secretary.index', tab=return_tab, page=return_page, q=return_q, sort=return_sort, order=return_order) }}" class="btn btn-outline">İptal</a>
+            </div>
+        </form>
+    </div>
+</div>
+<style>
+.cihaz-fiyat-blok { margin-bottom: 2rem; padding-bottom: 2rem; border-bottom: 1px solid var(--border); }
+.cihaz-fiyat-blok:last-of-type { border-bottom: none; }
+.cihaz-blok-baslik { margin: 0 0 0.25rem; font-size: 1.05rem; }
+.cihaz-blok-musteri { margin: 0 0 1rem; color: var(--text-muted); }
+.rapor-toplu-form .fault-fiyat-list { margin: 0.5rem 0 1rem; }
+.rapor-toplu-form .fault-fiyat-row {
+    display: grid;
+    grid-template-columns: 1fr 100px auto;
+    gap: 0.75rem;
+    align-items: center;
+    padding: 0.5rem 0;
+    border-bottom: 1px solid #f1f5f9;
+}
+.rapor-toplu-form .fault-para-birimi-row {
+    grid-template-columns: 1fr 140px;
+}
+.rapor-toplu-form .fault-para-birimi-row select { width: 100%; padding: 0.5rem; }
+.rapor-toplu-form .fault-fiyat-row label { font-size: 0.9rem; margin: 0; word-break: break-word; }
+.rapor-toplu-form .fault-fiyat-row input { width: 100%; padding: 0.5rem; }
+.rapor-toplu-form .fault-fiyat-row select { width: 100%; padding: 0.5rem; }
+.rapor-toplu-form .fault-fiyat-row .currency { color: var(--text-muted); font-size: 0.9rem; }
+.rapor-toplu-form .fiyat-toplam { margin: 0.5rem 0 0; padding-top: 0.5rem; border-top: 2px solid var(--border); font-size: 1rem; }
+.rapor-toplu-form .toplam-deger { color: var(--primary); font-weight: 600; }
+</style>
+<script>
+(function() {
+    var form = document.getElementById('toplu-rapor-form');
+    if (!form) return;
+    var faultInputs = form.querySelectorAll('.fault-price-input');
+    var genelInputs = form.querySelectorAll('.genel-fiyat-input');
+
+    function updateToplam(cihazId) {
+        var span = document.getElementById('toplam-' + cihazId);
+        if (!span) return;
+        var faultInps = form.querySelectorAll('.fault-price-input[data-cihaz-id="' + cihazId + '"]');
+        var genelInp = form.querySelector('.genel-fiyat-input[data-cihaz-id="' + cihazId + '"]');
+        var totals = {};
+        if (faultInps.length) {
+            faultInps.forEach(function(inp) {
+                var v = parseFloat(inp.value) || 0;
+                if (v < 0) return;
+                var row = inp.closest('.fault-fiyat-row');
+                if (!row) return;
+                var sel = row.querySelector('select');
+                var code = (sel && sel.value) ? sel.value.toUpperCase() : 'TL';
+                if (!totals[code]) totals[code] = 0;
+                totals[code] += v;
+            });
+        } else if (genelInp) {
+            var v = parseFloat(genelInp.value) || 0;
+            if (v >= 0) {
+                var row = genelInp.closest('.fault-fiyat-row');
+                var sel = row ? row.querySelector('select') : null;
+                var code = (sel && sel.value) ? sel.value.toUpperCase() : 'TL';
+                totals[code] = (totals[code] || 0) + v;
+            }
+        }
+        var parts = [];
+        var order = ['TL', 'USD', 'EUR', 'GBP'];
+        var symbols = { TL: '₺', USD: '$', EUR: '€', GBP: '£' };
+        order.forEach(function(code) {
+            if (totals[code]) {
+                parts.push(totals[code].toLocaleString('tr-TR', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + ' ' + (symbols[code] || code));
+            }
+        });
+        Object.keys(totals).forEach(function(code) {
+            if (order.indexOf(code) === -1) {
+                parts.push(totals[code].toLocaleString('tr-TR', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + ' ' + code);
+            }
+        });
+        span.textContent = parts.length ? parts.join(' + ') : '0,00';
+    }
+
+    faultInputs.forEach(function(inp) {
+        inp.addEventListener('input', function() { updateToplam(inp.getAttribute('data-cihaz-id')); });
+    });
+    genelInputs.forEach(function(inp) {
+        inp.addEventListener('input', function() { updateToplam(inp.getAttribute('data-cihaz-id')); });
+    });
+
+    var cihazIds = [];
+    faultInputs.forEach(function(inp) { cihazIds.push(inp.getAttribute('data-cihaz-id')); });
+    genelInputs.forEach(function(inp) { cihazIds.push(inp.getAttribute('data-cihaz-id')); });
+    cihazIds = [...new Set(cihazIds)];
+    cihazIds.forEach(updateToplam);
+})();
+</script>
+{% endblock %}

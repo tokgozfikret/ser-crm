@@ -1,0 +1,212 @@
+{% extends "base.html" %}
+{% from 'includes/pagination.html' import render_pagination %}
+{% block title %}Teknik Servis - SER-CRM{% endblock %}
+{% block content %}
+<div class="container page">
+    <div class="page-header">
+        <h1>Teknik Servis Paneli</h1>
+    </div>
+    <div class="tabs">
+        <a href="{{ url_for('technical.index', tab='all', q=arama, page=1, sort=sort, order=order) }}" class="tab {{ 'active' if aktif_tab == 'all' else '' }}">Tüm Cihazlar</a>
+        <a href="{{ url_for('technical.index', tab='on_inceleme', q=arama, page=1, sort=sort, order=order) }}" class="tab {{ 'active' if aktif_tab == 'on_inceleme' else '' }}">Ön İnceleme</a>
+        <a href="{{ url_for('technical.index', tab='tamamlanmamis', q=arama, page=1, sort=sort, order=order) }}" class="tab {{ 'active' if aktif_tab == 'tamamlanmamis' else '' }}">Tamir Aşaması</a>
+        <a href="{{ url_for('technical.index', tab='tamamlanmis', q=arama, page=1, sort=sort, order=order) }}" class="tab {{ 'active' if aktif_tab == 'tamamlanmis' else '' }}">Tamamlanmış Cihazlar</a>
+        <a href="{{ url_for('technical.index', tab='musteri_cihazlari', q=arama, page=1) }}" class="tab {{ 'active' if aktif_tab == 'musteri_cihazlari' else '' }}">Firmaya Göre Cihazlar</a>
+        <a href="{{ url_for('technical.kargolandi') }}" class="tab">Firmaya Gönderilen</a>
+    </div>
+    <div class="card">
+        {% if aktif_tab == 'musteri_cihazlari' %}
+        <h2>Firmaya göre cihazlar</h2>
+        <form method="get" action="{{ url_for('technical.index') }}" class="search-form">
+            <input type="hidden" name="tab" value="musteri_cihazlari">
+            <input type="text" name="q" value="{{ arama }}" placeholder="Firma adı, telefon veya adres ara..." class="search-input" oninput="if(!this.value.trim())this.form.submit()">
+            {% if secili_musteri %}
+            <input type="hidden" name="musteri_adi" value="{{ secili_musteri_adi }}">
+            <input type="hidden" name="musteri_telefon" value="{{ secili_musteri_telefon or '' }}">
+            {% endif %}
+            <input type="hidden" name="page" value="1">
+            <button type="submit" class="btn btn-primary">Ara</button>
+        </form>
+        {% if not pagination.items %}
+        <p class="empty">Bu arama kriterine göre kayıt bulunamadı.</p>
+        {% else %}
+        {% if not secili_musteri %}
+        <p class="form-hint">Toplam {{ pagination.total }} firma bulundu (teknik servisteki cihazı olanlar).</p>
+        <div class="table-wrap">
+            <table class="data-table">
+                <thead>
+                    <tr>
+                        <th>Firma</th>
+                        <th>Telefon</th>
+                        <th>Adres</th>
+                        <th>Lokasyon / Proje</th>
+                        <th>İşlem</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for m in pagination.items %}
+                    <tr>
+                        <td>{{ m.musteri_adi }}</td>
+                        <td>{{ m.musteri_telefon or '-' }}</td>
+                        <td>{{ m.musteri_adres or '-' }}</td>
+                        <td>—</td>
+                        <td class="actions">
+                            <a href="{{ url_for('technical.index', tab='musteri_cihazlari', musteri_adi=m.musteri_adi, musteri_telefon=m.musteri_telefon or '', q=arama, page=1) }}" class="btn btn-sm btn-primary">Cihazları göster</a>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        {{ render_pagination(pagination, 'technical.index', info_text='firma', tab='musteri_cihazlari', q=arama) }}
+        {% else %}
+        <div class="form-actions" style="margin-bottom:0.5rem; display:flex; justify-content:space-between; align-items:center; gap:1rem;">
+            <p class="form-hint" style="margin:0;">
+                Firma: <strong>{{ secili_musteri_adi }}</strong>{% if secili_musteri_telefon %} ({{ secili_musteri_telefon }}){% endif %} – Toplam {{ pagination.total }} cihaz
+            </p>
+            <a href="{{ url_for('technical.index', tab='musteri_cihazlari', q=arama, page=1) }}" class="btn btn-outline">← Firma listesine dön</a>
+        </div>
+        <div class="table-wrap">
+            <table class="data-table">
+                <thead>
+                    <tr>
+                        <th>#</th>
+                        <th>Cihaz</th>
+                        <th>Seri no</th>
+                        <th>Durum</th>
+                        <th>Tamamlanma tarihi</th>
+                        <th>Arıza sayısı</th>
+                        <th>İşlem</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for c in pagination.items %}
+                    <tr class="{% if aktif_tab == 'all' and c.overdue_72h %}row-overdue{% endif %}">
+                        <td>{{ c.id }}</td>
+                        <td>{{ c.cihaz_bilgisi[:50] }}{% if c.cihaz_bilgisi|length > 50 %}...{% endif %}</td>
+                        <td>{{ c.seri_no or '-' }}</td>
+                        <td><span class="badge badge-{{ c.durum }}">{% if c.durum == 'arizalar_tamamlandi' %}Sekreterlikte{% else %}{{ c.DURUMLAR.get(c.durum, c.durum) }}{% endif %}</span></td>
+                        <td>{{ (c.arizalar_tamamlandi_at or c.updated_at).strftime('%d.%m.%Y %H:%M') if (c.arizalar_tamamlandi_at or c.updated_at) else '—' }}</td>
+                        <td>{{ c.faults.count() }} ({{ c.faults.filter_by(yapildi=True).count() }} yapıldı)</td>
+                        <td>
+                            {% if c.durum == 'arizalar_tamamlandi' %}
+                            <a href="{{ url_for('technical.cihaz_detay', id=c.id, return_tab='musteri_cihazlari', return_page=pagination.page, q=arama, return_musteri_adi=secili_musteri_adi, return_musteri_telefon=secili_musteri_telefon or '') }}" class="btn btn-sm">Detay</a>
+                            {% else %}
+                            <a href="{{ url_for('technical.cihaz_detay', id=c.id, return_tab='musteri_cihazlari', return_page=pagination.page, q=arama, return_musteri_adi=secili_musteri_adi, return_musteri_telefon=secili_musteri_telefon or '') }}" class="btn btn-sm btn-primary">Arızaları gir / Tamamla</a>
+                            {% endif %}
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        {{ render_pagination(pagination, 'technical.index', info_text='cihaz', tab='musteri_cihazlari', q=arama, musteri_adi=secili_musteri_adi or '', musteri_telefon=secili_musteri_telefon or '') }}
+        {% endif %}
+        {% endif %}
+        {% else %}
+        {% if aktif_tab != 'musteri_cihazlari' %}<h2>{% if aktif_tab == 'all' %}Tüm Cihazlar{% elif aktif_tab == 'tamamlanmis' %}Arızaları tamamlanan cihazlar (sekreterliğe gönderildi){% elif aktif_tab == 'on_inceleme' %}Ön inceleme aşamasındaki cihazlar{% elif aktif_tab == 'tamamlanmamis' %}Tamir aşamasındaki cihazlar{% else %}Arızası henüz tamamlanmamış cihazlar{% endif %}</h2>{% endif %}
+        <form method="get" class="search-form {% if aktif_tab == 'all' %}search-form-inline{% endif %}" id="technical-filter-form">
+            <input type="hidden" name="tab" value="{{ aktif_tab }}">
+            <input type="hidden" name="sort" value="{{ sort }}">
+            <input type="hidden" name="order" value="{{ order }}">
+            <input type="text" name="q" value="{{ arama }}" placeholder="Firma, cihaz, telefon ara..." class="search-input" oninput="if(!this.value.trim())this.form.submit()">
+            {% if aktif_tab == 'all' %}
+            <span class="search-form-date-group">
+                <label for="tarih_baslangic">Başlangıç</label>
+                <input type="date" id="tarih_baslangic" name="tarih_baslangic" value="{{ tarih_baslangic|default('') }}" class="search-form-date-input">
+            </span>
+            <span class="search-form-date-group">
+                <label for="tarih_bitis">Bitiş</label>
+                <input type="date" id="tarih_bitis" name="tarih_bitis" value="{{ tarih_bitis|default('') }}" class="search-form-date-input">
+            </span>
+            {% endif %}
+            <input type="hidden" name="page" value="1">
+            <button type="submit" class="btn btn-primary">{% if aktif_tab == 'all' %}Filtrele{% else %}Ara{% endif %}</button>
+            {% if aktif_tab == 'all' and (tarih_baslangic or tarih_bitis) %}
+            <a href="{{ url_for('technical.index', tab='all', q=arama, page=1, sort=sort, order=order) }}" class="btn btn-outline">Tarih filtrelerini temizle</a>
+            {% endif %}
+        </form>
+        {% if aktif_tab == 'all' %}
+        <script>
+        (function(){
+            var f = document.getElementById('technical-filter-form');
+            if (!f) return;
+            var start = document.getElementById('tarih_baslangic');
+            var end = document.getElementById('tarih_bitis');
+            if (!start || !end) return;
+            function sync() {
+                if (start.value) end.min = start.value; else end.removeAttribute('min');
+                if (end.value) start.max = end.value; else start.removeAttribute('max');
+            }
+            function valid(e) {
+                if (!start.value || !end.value) return true;
+                sync();
+                if (start.value > end.value) {
+                    start.setCustomValidity('Başlangıç, bitişten sonra olamaz.');
+                    if (e) e.preventDefault();
+                    return false;
+                }
+                start.setCustomValidity('');
+                return true;
+            }
+            f.addEventListener('submit', valid);
+            start.addEventListener('change', sync);
+            end.addEventListener('change', sync);
+            sync();
+        })();
+        </script>
+        {% endif %}
+        {% if pagination.items %}
+        <div class="table-wrap">
+            <table class="data-table">
+                <thead>
+                    <tr>
+                        {% if aktif_tab == 'all' %}<th><a href="{{ url_for('technical.index', tab=aktif_tab, q=arama, page=1, sort='id', order='asc' if sort=='id' and order=='desc' else 'desc') }}" class="sort-link">#</a></th>{% endif %}
+                        <th><a href="{{ url_for('technical.index', tab=aktif_tab, q=arama, page=1, sort='musteri_adi', order='asc' if sort=='musteri_adi' and order=='desc' else 'desc') }}" class="sort-link">Firma</a></th>
+                        <th><a href="{{ url_for('technical.index', tab=aktif_tab, q=arama, page=1, sort='cihaz_bilgisi', order='asc' if sort=='cihaz_bilgisi' and order=='desc' else 'desc') }}" class="sort-link">Cihaz markası</a></th>
+                        <th>Model</th>
+                        <th><a href="{{ url_for('technical.index', tab=aktif_tab, q=arama, page=1, sort='seri_no', order='asc' if sort=='seri_no' and order=='desc' else 'desc') }}" class="sort-link">Seri no</a></th>
+                        <th class="col-sikayet"><a href="{{ url_for('technical.index', tab=aktif_tab, q=arama, page=1, sort='aciklama', order='asc' if sort=='aciklama' and order=='desc' else 'desc') }}" class="sort-link">Firma arıza şikayeti</a></th>
+                        <th><a href="{{ url_for('technical.index', tab=aktif_tab, q=arama, page=1, sort='durum', order='asc' if sort=='durum' and order=='desc' else 'desc') }}" class="sort-link">Durum</a></th>
+                        {% if aktif_tab == 'all' %}<th><a href="{{ url_for('technical.index', tab=aktif_tab, q=arama, page=1, sort='teknik_servise_gonderildi_at', order='asc' if sort=='teknik_servise_gonderildi_at' and order=='desc' else 'desc') }}" class="sort-link">Teknik servise gönderilme</a></th>{% endif %}
+                        {% if aktif_tab == 'tamamlanmis' %}<th><a href="{{ url_for('technical.index', tab=aktif_tab, q=arama, page=1, sort='arizalar_tamamlandi_at', order='asc' if sort=='arizalar_tamamlandi_at' and order=='desc' else 'desc') }}" class="sort-link">Tamamlanma tarihi</a></th>{% endif %}
+                        {% if aktif_tab in ('all', 'tamamlanmamis', 'tamamlanmis') %}<th>Arıza durumu</th>{% endif %}
+                        <th>İşlem</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for c in pagination.items %}
+                    <tr class="{% if aktif_tab == 'all' and c.overdue_72h %}row-overdue{% endif %}">
+                        {% if aktif_tab == 'all' %}<td>{{ c.id }}</td>{% endif %}
+                        <td>
+                            {{ c.musteri_adi }}
+                            <br><small>{{ c.customer.lokasyon_proje if c.customer and c.customer.lokasyon_proje else 'Lokasyon / proje yok' }}</small>
+                        </td>
+                        <td>{{ (c.cihaz_marka or c.cihaz_bilgisi)[:50] }}{% if (c.cihaz_marka or c.cihaz_bilgisi)|length > 50 %}...{% endif %}</td>
+                        <td>{{ c.cihaz_model or '-' }}</td>
+                        <td>{{ c.seri_no or '-' }}</td>
+                        <td class="col-sikayet">{{ (c.aciklama or '-')[:80] }}{% if c.aciklama and c.aciklama|length > 80 %}...{% endif %}</td>
+                        <td><span class="badge badge-{{ c.durum }}">{% if c.durum == 'arizalar_tamamlandi' %}Sekreterlikte{% else %}{{ c.DURUMLAR.get(c.durum, c.durum) }}{% endif %}</span></td>
+                        {% if aktif_tab == 'all' %}<td>{{ c.teknik_servise_gonderildi_at.strftime('%d.%m.%Y %H:%M') if c.teknik_servise_gonderildi_at else '—' }}</td>{% endif %}
+                        {% if aktif_tab == 'tamamlanmis' %}<td>{{ (c.arizalar_tamamlandi_at or c.updated_at).strftime('%d.%m.%Y %H:%M') if (c.arizalar_tamamlandi_at or c.updated_at) else '—' }}</td>{% endif %}
+                        {% if aktif_tab in ('all', 'tamamlanmamis', 'tamamlanmis') %}<td>{% if c.durum == 'arizalar_tamamlandi' %}<span class="badge badge-success">Arızalar Tamamlandı</span>{% elif c.faults.count() == 0 %}<span class="badge badge-warning">Arızası hiç girilmemiş</span>{% elif c.faults.filter_by(yapildi=False).count() > 0 %}<span class="badge badge-purple">Arızası girilmiş / yapıldı işaretlenmemiş</span>{% else %}<span class="badge badge-info">Tüm arızalar tamamlandı, sekreterliğe bildirilmemiş</span>{% endif %}</td>{% endif %}
+                        <td>
+                            {% if aktif_tab == 'tamamlanmis' or c.durum == 'arizalar_tamamlandi' %}
+                            <a href="{{ url_for('technical.cihaz_detay', id=c.id, return_tab=aktif_tab, return_page=pagination.page, q=arama, sort=sort, order=order) }}" class="btn btn-sm">Detay</a>
+                            {% else %}
+                            <a href="{{ url_for('technical.cihaz_detay', id=c.id, return_tab=aktif_tab, return_page=pagination.page, q=arama, sort=sort, order=order) }}" class="btn btn-sm btn-primary">Arızaları gir / Tamamla</a>
+                            {% endif %}
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        {{ render_pagination(pagination, 'technical.index', info_text='kayıt', tab=aktif_tab, q=arama, sort=sort, order=order, tarih_baslangic=tarih_baslangic|default(''), tarih_bitis=tarih_bitis|default('')) }}
+        {% else %}
+        <p class="empty">{% if arama or (aktif_tab == 'all' and (tarih_baslangic or tarih_bitis)) %}Seçilen filtreye uygun sonuç bulunamadı.{% elif aktif_tab == 'tamamlanmis' %}Arızaları tamamlanmış cihaz yok.{% elif aktif_tab == 'on_inceleme' %}Ön inceleme bekleyen cihaz yok. Sekreterlik cihaz gönderdikçe burada listelenecek.{% elif aktif_tab == 'tamamlanmamis' %}Tamir aşamasında cihaz yok.{% else %}Şu an teknik serviste cihaz yok. Sekreterlik cihaz gönderdikçe burada listelenecek.{% endif %}</p>
+        {% endif %}
+        {% endif %}
+    </div>
+</div>
+{% endblock %}

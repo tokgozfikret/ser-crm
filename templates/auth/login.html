@@ -1,0 +1,26 @@
+{% extends "base.html" %}
+{% block title %}Giriş - SER-CRM © 2026{% endblock %}
+{% block content %}
+<div class="login-page">
+    <div class="login-box">
+        <img src="{{ url_for('static', filename='images/ser_logo.png') }}" alt="SER" class="login-logo" style="max-width:100%; height:auto; margin-bottom:1.25rem;">
+        <h1>SER-CRM © 2026</h1>
+        <form method="post" action="{{ url_for('auth.login') }}" class="login-form form-modern">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+            <div class="form-group">
+                <label for="username">Kullanıcı adı</label>
+                <input type="text" id="username" name="username" required autofocus>
+            </div>
+            <div class="form-group">
+                <label for="password">Şifre</label>
+                <input type="password" id="password" name="password" required>
+            </div>
+            <button type="submit" class="btn btn-primary btn-block">Giriş yap</button>
+        </form>
+        <a href="{{ url_for('auth.register') }}" class="btn btn-outline btn-block" style="margin-top:0.75rem;">Kayıt ol</a>
+        <div style="text-align:right; margin-top:0.5rem;">
+            <a href="{{ url_for('auth.forgot_password') }}" class="link-muted" style="font-size:0.9rem;">Şifremi unuttum</a>
+        </div>
+    </div>
+</div>
+{% endblock %}

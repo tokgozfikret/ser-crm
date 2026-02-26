@@ -1,0 +1,679 @@
+{% extends "base.html" %}
+{% from 'includes/pagination.html' import render_pagination %}
+{% block title %}Sekreterlik - SER-CRM{% endblock %}
+{% block content %}
+<div class="container page">
+    <div class="page-header">
+        <h1>Sekreterlik Paneli</h1>
+        <div class="header-actions">
+            <a href="{{ url_for('secretary.musteriler') }}" class="btn btn-outline">Firma Yönetimi</a>
+            <a href="{{ url_for('secretary.coklu_cihaz_ekle') }}" class="btn btn-primary">+ Cihaz ekle</a>
+        </div>
+    </div>
+    {% if onayladi_count and onayladi_count > 0 %}
+    <div class="alert alert-success" style="margin-bottom:1rem;">
+        <strong>Firma onayladı – teknik servise gönderebilirsiniz.</strong>
+        {{ onayladi_count }} cihaz firma tarafından onaylandı. <a href="{{ url_for('secretary.index', tab='musteri_onayladi') }}">Firma Onayladı</a> sekmesinden teknik servise gönderebilirsiniz.
+    </div>
+    {% endif %}
+    {% if onaylamadi_count and onaylamadi_count > 0 %}
+    <div class="alert alert-error" style="margin-bottom:1rem;">
+        <strong>Firma onaylamadı – cihazları işlem yapmadan firmaya gönder.</strong>
+        {{ onaylamadi_count }} cihaz firma tarafından reddedildi. <a href="{{ url_for('secretary.index', tab='musteri_onaylamadi') }}">Firma Onaylamadı</a> sekmesinden firmaya iade işlemini yapabilirsiniz.
+    </div>
+    {% endif %}
+    <div class="card">
+        {% if aktif_tab != 'musteri_cihazlari' %}<h2>Cihaz listesi</h2>{% endif %}
+        <nav class="tabs">
+            <a href="{{ url_for('secretary.index', tab='all', q=arama, page=1, sort='id', order='desc') }}" class="tab {% if aktif_tab == 'all' %}active{% endif %}">Tüm</a>
+            <a href="{{ url_for('secretary.index', tab='henuz_gonderilmedi', q=arama, page=1, sort=sort, order=order) }}" class="tab {% if aktif_tab == 'henuz_gonderilmedi' %}active{% endif %}">Geldi</a>
+            <a href="{{ url_for('secretary.index', tab='on_inceleme_sekreterlikte', q=arama, page=1) }}" class="tab {% if aktif_tab == 'on_inceleme_sekreterlikte' %}active{% endif %}">Ön İnceleme</a>
+            <a href="{{ url_for('secretary.index', tab='musteri_onay_bekliyor', q=arama, page=1) }}" class="tab {% if aktif_tab == 'musteri_onay_bekliyor' %}active{% endif %}">Onay Bekliyor</a>
+            <a href="{{ url_for('secretary.index', tab='musteri_onayladi', q=arama, page=1) }}" class="tab {% if aktif_tab == 'musteri_onayladi' %}active{% endif %}">Firma Onayladı</a>
+            <a href="{{ url_for('secretary.index', tab='musteri_onaylamadi', q=arama, page=1) }}" class="tab {% if aktif_tab == 'musteri_onaylamadi' %}active{% endif %}">Firma Onaylamadı</a>
+            <a href="{{ url_for('secretary.index', tab='teknik_serviste', q=arama, page=1, sort=sort, order=order) }}" class="tab {% if aktif_tab == 'teknik_serviste' %}active{% endif %}">Teknikte</a>
+            <a href="{{ url_for('secretary.index', tab='kargolanacak', q=arama, page=1, sort=sort, order=order) }}" class="tab {% if aktif_tab == 'kargolanacak' %}active{% endif %}">Kargolanacak</a>
+            <a href="{{ url_for('secretary.index', tab='musteriye_gonderilen', q=arama, page=1, sort='kargolandi_at', order='desc') }}" class="tab {% if aktif_tab == 'musteriye_gonderilen' %}active{% endif %}">Kargolandı</a>
+            <a href="{{ url_for('secretary.index', tab='musteri_cihazlari', q=arama, page=1) }}" class="tab {% if aktif_tab == 'musteri_cihazlari' %}active{% endif %}">Firmaya Göre</a>
+        </nav>
+        {% if aktif_tab == 'musteri_cihazlari' %}
+        <h2>Firmaya göre cihazlar</h2>
+        <form method="get" action="{{ url_for('secretary.index') }}" class="search-form">
+            <input type="hidden" name="tab" value="musteri_cihazlari">
+            <input type="text" name="q" value="{{ arama }}" placeholder="Firma adı, telefon veya adres ara..." class="search-input" oninput="if(!this.value.trim())this.form.submit()">
+            {% if secili_musteri %}
+            <input type="hidden" name="musteri_adi" value="{{ secili_musteri_adi }}">
+            <input type="hidden" name="musteri_telefon" value="{{ secili_musteri_telefon or '' }}">
+            {% endif %}
+            <input type="hidden" name="page" value="1">
+            <button type="submit" class="btn btn-primary">Ara</button>
+        </form>
+        {% if not pagination.items %}
+        <p class="empty">Bu arama kriterine göre kayıt bulunamadı.</p>
+        {% else %}
+        {% if not secili_musteri %}
+        <p class="form-hint">Toplam {{ pagination.total }} firma bulundu.</p>
+        <div class="table-wrap">
+            <table class="data-table">
+                <thead>
+                    <tr>
+                        <th>Firma</th>
+                        <th>Telefon</th>
+                        <th>Adres</th>
+                        <th>İşlem</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for m in pagination.items %}
+                    <tr>
+                        <td>{{ m.musteri_adi }}</td>
+                        <td>{{ m.musteri_telefon or '-' }}</td>
+                        <td>{{ m.musteri_adres or '-' }}</td>
+                        <td class="actions">
+                            <a href="{{ url_for('secretary.index', tab='musteri_cihazlari', musteri_adi=m.musteri_adi, musteri_telefon=m.musteri_telefon or '', q=arama, page=1) }}" class="btn btn-sm btn-primary">Cihazları göster</a>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        {{ render_pagination(pagination, 'secretary.index', info_text='firma', tab='musteri_cihazlari', q=arama) }}
+        {% else %}
+        <div class="form-actions" style="margin-bottom:0.5rem; display:flex; justify-content:space-between; align-items:center; gap:1rem;">
+            <p class="form-hint" style="margin:0;">
+                Firma: <strong>{{ secili_musteri_adi }}</strong>{% if secili_musteri_telefon %} ({{ secili_musteri_telefon }}){% endif %} – Toplam {{ pagination.total }} cihaz
+            </p>
+            <a href="{{ url_for('secretary.index', tab='musteri_cihazlari', q=arama, page=1) }}" class="btn btn-outline">← Firma listesine dön</a>
+        </div>
+        <form method="post" action="{{ url_for('secretary.musteri_cihazlari_toplu') }}" id="musteri-cihazlari-toplu-form">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+            <input type="hidden" name="q" value="{{ arama }}">
+            <input type="hidden" name="page" value="{{ pagination.page }}">
+            <input type="hidden" name="return_musteri_adi" value="{{ secili_musteri_adi }}">
+            <input type="hidden" name="return_musteri_telefon" value="{{ secili_musteri_telefon or '' }}">
+            <div class="bulk-actions">
+                <button type="button" class="btn btn-primary musteri-cihazlari-teknik-gonder-btn">Seçilenleri teknik servise gönder</button>
+                <button type="submit" name="toplu_islem" value="kargolandı_isaretle" class="btn btn-success">Seçilenleri kargolandı işaretle</button>
+                <span class="bulk-hint">Durumu "Cihaz geldi" olanlar teknik servise gönderilebilir, "Arızalar tamamlandı" olanlar kargolandı işaretlenebilir.</span>
+            </div>
+            <div class="table-wrap">
+                <table class="data-table">
+                    <thead>
+                        <tr>
+                            <th class="col-check">Seç</th>
+                            <th>Cihaz</th>
+                            <th>Seri no</th>
+                            <th>Durum</th>
+                            <th>Tarih</th>
+                            <th>İşlem</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for c in pagination.items %}
+                        <tr>
+                            <td class="col-check">
+                                {% if c.durum == 'geldi' %}
+                                <input type="checkbox" name="cihaz_id" value="{{ c.id }}">
+                                {% elif c.durum == 'arizalar_tamamlandi' %}
+                                <input type="checkbox" name="kargo_cihaz_id" value="{{ c.id }}">
+                                {% else %}
+                                <span class="no-check">—</span>
+                                {% endif %}
+                            </td>
+                            <td>{{ c.cihaz_bilgisi[:60] }}{% if c.cihaz_bilgisi|length > 60 %}...{% endif %}</td>
+                            <td>{{ c.seri_no or '-' }}</td>
+                            <td><span class="badge badge-{{ c.durum }}">{{ c.DURUMLAR.get(c.durum, c.durum) }}</span></td>
+                            <td>{{ c.created_at.strftime('%d.%m.%Y %H:%M') }}</td>
+                            <td class="actions">
+                                <a href="{{ url_for('secretary.cihaz_detay', id=c.id, return_tab='musteri_cihazlari', return_musteri_adi=secili_musteri_adi, return_musteri_telefon=secili_musteri_telefon or '', return_page=pagination.page, return_q=arama, return_sort='created_at', return_order='desc') }}" class="btn btn-sm">Detay</a>
+                                {% if c.durum == 'musteri_onaylamadi' %}
+                                <form id="musteriye-iade-mc-{{ c.id }}" method="post" action="{{ url_for('secretary.musteriye_iade_et', id=c.id) }}" style="display:inline;">
+                                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                                    <button type="button" class="btn btn-sm btn-success musteriye-iade-onay-btn" data-form-id="musteriye-iade-mc-{{ c.id }}">Firmaya iade et</button>
+                                </form>
+                                {% endif %}
+                                {% if c.durum == 'musteri_onayladi' %}
+                                <form method="post" action="{{ url_for('secretary.teknik_servise_tamir_gonder', id=c.id) }}" style="display:inline;">
+                                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                                    <button type="submit" class="btn btn-sm btn-primary">Teknik servise gönder</button>
+                                </form>
+                                {% endif %}
+                                {% if c.durum == 'on_inceleme_sekreterlikte' %}
+                                <button type="button" class="btn btn-sm btn-primary rapor-musteriye-onay-btn" data-modal-id="rapor-fiyat-modal-{{ c.id }}">Ön inceleme raporunu firmaya gönder</button>
+                                {% endif %}
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </form>
+        {{ render_pagination(pagination, 'secretary.index', info_text='cihaz', tab='musteri_cihazlari', q=arama, musteri_adi=secili_musteri_adi or '', musteri_telefon=secili_musteri_telefon or '') }}
+        {% endif %}
+        {% endif %}
+        {% else %}
+        <form method="get" class="search-form {% if aktif_tab in ('musteriye_gonderilen', 'all') %}search-form-inline{% endif %}" id="secretary-filter-form">
+            <input type="hidden" name="tab" value="{{ aktif_tab }}">
+            <input type="hidden" name="sort" value="{{ sort }}">
+            <input type="hidden" name="order" value="{{ order }}">
+            <input type="text" name="q" value="{{ arama }}" placeholder="Firma, cihaz, telefon, adres ara..." class="search-input" oninput="if(!this.value.trim())this.form.submit()">
+            {% if aktif_tab in ('musteriye_gonderilen', 'all') %}
+            <span class="search-form-date-group">
+                <label for="tarih_baslangic">Başlangıç</label>
+                <input type="date" id="tarih_baslangic" name="tarih_baslangic" value="{{ tarih_baslangic|default('') }}" class="search-form-date-input">
+            </span>
+            <span class="search-form-date-group">
+                <label for="tarih_bitis">Bitiş</label>
+                <input type="date" id="tarih_bitis" name="tarih_bitis" value="{{ tarih_bitis|default('') }}" class="search-form-date-input">
+            </span>
+            {% endif %}
+            <input type="hidden" name="page" value="1">
+            <button type="submit" class="btn btn-primary">{% if aktif_tab in ('musteriye_gonderilen', 'all') %}Filtrele{% else %}Ara{% endif %}</button>
+            {% if aktif_tab in ('musteriye_gonderilen', 'all') and (tarih_baslangic or tarih_bitis) %}
+            <a href="{{ url_for('secretary.index', tab=aktif_tab, q=arama, page=1, sort=('kargolandi_at' if aktif_tab == 'musteriye_gonderilen' else 'id'), order='desc') }}" class="btn btn-outline">Tarih filtrelerini temizle</a>
+            {% endif %}
+        </form>
+        {% if aktif_tab in ('musteriye_gonderilen', 'all') %}
+        <script>
+        (function(){
+            var f = document.getElementById('secretary-filter-form');
+            if (!f) return;
+            var start = document.getElementById('tarih_baslangic');
+            var end = document.getElementById('tarih_bitis');
+            if (!start || !end) return;
+            function sync() {
+                if (start.value) end.min = start.value; else end.removeAttribute('min');
+                if (end.value) start.max = end.value; else start.removeAttribute('max');
+            }
+            function valid(e) {
+                if (!start.value || !end.value) return true;
+                sync();
+                if (start.value > end.value) {
+                    start.setCustomValidity('Başlangıç, bitişten sonra olamaz.');
+                    if (e) e.preventDefault();
+                    return false;
+                }
+                start.setCustomValidity('');
+                return true;
+            }
+            f.addEventListener('submit', valid);
+            start.addEventListener('change', sync);
+            end.addEventListener('change', sync);
+            sync();
+        })();
+        </script>
+        {% endif %}
+        {% if pagination.items %}
+        <form method="post" action="{{ url_for('secretary.toplu_islem') }}" id="toplu-gonder-form">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+            <input type="hidden" name="return_page" value="{{ pagination.page }}">
+            <input type="hidden" name="return_q" value="{{ arama }}">
+            <input type="hidden" name="return_tab" value="{{ aktif_tab }}">
+            <input type="hidden" name="return_sort" value="{{ sort }}">
+            <input type="hidden" name="return_order" value="{{ order }}">
+            <div class="bulk-actions">
+                {% if aktif_tab == 'henuz_gonderilmedi' %}
+                <button type="button" class="btn btn-primary" id="toplu-gonder-btn" disabled data-bulk-action="teknik_servise_gonder">Seçilenleri teknik servise gönder</button>
+                {% endif %}
+                {% if aktif_tab == 'kargolanacak' %}
+                <button type="submit" name="toplu_islem" value="kargolandı_isaretle" class="btn btn-success" id="toplu-kargo-btn" disabled>Seçilenleri kargolandı işaretle</button>
+                {% endif %}
+                {% if aktif_tab == 'on_inceleme_sekreterlikte' %}
+                <button type="submit" name="toplu_islem" value="on_inceleme_raporu_gonder" class="btn btn-primary" id="toplu-rapor-btn" disabled formaction="{{ url_for('secretary.on_inceleme_toplu_fiyat_gir') }}">Seçilenleri ön inceleme için firmaya gönder</button>
+                {% endif %}
+                <span class="bulk-hint">{% if aktif_tab == 'teknik_serviste' %}Bu sekmede sekreter tarafından işlem yapılmaz.{% elif aktif_tab == 'henuz_gonderilmedi' %}Cihazları seçip tek tıkla teknik servise gönderebilirsiniz.{% elif aktif_tab == 'kargolanacak' %}Cihazları seçip tek tıkla kargolandı işaretleyebilirsiniz.{% elif aktif_tab == 'on_inceleme_sekreterlikte' %}Cihazları seçip tek tıkla ön inceleme raporunu firmaya gönderebilirsiniz.{% elif aktif_tab == 'musteriye_gonderilen' %}{% endif %}</span>
+            </div>
+        </form>
+        <div class="table-wrap">
+            <table class="data-table">
+                <thead>
+                    <tr>
+                        {% if aktif_tab in ('henuz_gonderilmedi', 'kargolanacak', 'on_inceleme_sekreterlikte') %}<th class="col-check">{% if aktif_tab == 'henuz_gonderilmedi' %}<input type="checkbox" id="select-all-geldi" title="Tüm 'geldi' cihazlarını seç">{% elif aktif_tab == 'kargolanacak' %}<input type="checkbox" id="select-all-kargo" title="Tüm kargolanacak cihazları seç">{% elif aktif_tab == 'on_inceleme_sekreterlikte' %}<input type="checkbox" id="select-all-rapor" title="Tüm ön inceleme cihazlarını seç">{% endif %}</th>{% endif %}
+                        {% if aktif_tab == 'all' %}<th><a href="{{ url_for('secretary.index', tab=aktif_tab, q=arama, page=1, sort='id', order='asc' if sort=='id' and order=='desc' else 'desc') }}" class="sort-link">#</a></th>{% endif %}
+                        <th><a href="{{ url_for('secretary.index', tab=aktif_tab, q=arama, page=1, sort='musteri_adi', order='asc' if sort=='musteri_adi' and order=='desc' else 'desc') }}" class="sort-link">Firma</a></th>
+                        <th><a href="{{ url_for('secretary.index', tab=aktif_tab, q=arama, page=1, sort='cihaz_bilgisi', order='asc' if sort=='cihaz_bilgisi' and order=='desc' else 'desc') }}" class="sort-link">Cihaz markası</a></th>
+                        <th>Model</th>
+                        <th><a href="{{ url_for('secretary.index', tab=aktif_tab, q=arama, page=1, sort='seri_no', order='asc' if sort=='seri_no' and order=='desc' else 'desc') }}" class="sort-link">Seri no</a></th>
+                        <th>Durum</th>
+                        {% if aktif_tab == 'musteriye_gonderilen' %}<th><a href="{{ url_for('secretary.index', tab=aktif_tab, q=arama, page=1, sort='created_at', order='asc' if sort=='created_at' and order=='desc' else 'desc') }}" class="sort-link">Sekreterliğe giriş tarihi</a></th><th><a href="{{ url_for('secretary.index', tab=aktif_tab, q=arama, page=1, sort='kargolandi_at', order='asc' if sort=='kargolandi_at' and order=='desc' else 'desc') }}" class="sort-link">Kargolanma tarihi</a></th>{% elif aktif_tab == 'teknik_serviste' %}<th><a href="{{ url_for('secretary.index', tab=aktif_tab, q=arama, page=1, sort='teknik_servise_gonderildi_at', order='asc' if sort=='teknik_servise_gonderildi_at' and order=='desc' else 'desc') }}" class="sort-link">Teknik servise gönderilme tarihi</a></th>{% elif aktif_tab == 'kargolanacak' %}<th><a href="{{ url_for('secretary.index', tab=aktif_tab, q=arama, page=1, sort='arizalar_tamamlandi_at', order='asc' if sort=='arizalar_tamamlandi_at' and order=='desc' else 'desc') }}" class="sort-link">Teknik serviste tamamlanma tarihi</a></th>{% else %}<th><a href="{{ url_for('secretary.index', tab=aktif_tab, q=arama, page=1, sort='created_at', order='asc' if sort=='created_at' and order=='desc' else 'desc') }}" class="sort-link">Sekreterliğe giriş tarihi</a></th>{% endif %}
+                        <th>İşlem</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for c in pagination.items %}
+                    <tr>
+                        {% if aktif_tab in ('henuz_gonderilmedi', 'kargolanacak', 'on_inceleme_sekreterlikte') %}<td class="col-check">
+                            {% if aktif_tab == 'henuz_gonderilmedi' and c.durum == 'geldi' %}
+                            <input type="checkbox" form="toplu-gonder-form" name="cihaz_id" value="{{ c.id }}" class="cihaz-geldi-check">
+                            {% elif aktif_tab == 'kargolanacak' and c.durum == 'arizalar_tamamlandi' %}
+                            <input type="checkbox" form="toplu-gonder-form" name="kargo_cihaz_id" value="{{ c.id }}" class="cihaz-kargo-check">
+                            {% elif aktif_tab == 'on_inceleme_sekreterlikte' and c.durum == 'on_inceleme_sekreterlikte' %}
+                            <input type="checkbox" form="toplu-gonder-form" name="rapor_cihaz_id" value="{{ c.id }}" class="cihaz-rapor-check">
+                            {% else %}
+                            <span class="no-check">—</span>
+                            {% endif %}
+                        </td>{% endif %}
+                        {% if aktif_tab == 'all' %}<td>{{ c.id }}</td>{% endif %}
+                        <td>
+                            {{ c.musteri_adi }}
+                            <br><small>{{ c.customer.lokasyon_proje if c.customer and c.customer.lokasyon_proje else 'Lokasyon / proje yok' }}</small>
+                        </td>
+                        <td>{{ (c.cihaz_marka or c.cihaz_bilgisi)[:50] }}{% if (c.cihaz_marka or c.cihaz_bilgisi)|length > 50 %}...{% endif %}</td>
+                        <td>{{ c.cihaz_model or '-' }}</td>
+                        <td>{{ c.seri_no or '-' }}</td>
+                        <td><span class="badge badge-{{ c.durum }}">{{ c.DURUMLAR.get(c.durum, c.durum) }}</span></td>
+                        {% if aktif_tab == 'musteriye_gonderilen' %}<td>{{ c.created_at.strftime('%d.%m.%Y %H:%M') }}</td><td>{{ (c.kargolandi_at or c.updated_at).strftime('%d.%m.%Y %H:%M') if c.kargolandi_at or c.updated_at else '—' }}</td>{% elif aktif_tab == 'teknik_serviste' %}<td>{{ (c.teknik_servise_gonderildi_at or c.updated_at).strftime('%d.%m.%Y %H:%M') if c.teknik_servise_gonderildi_at or c.updated_at else '—' }}</td>{% elif aktif_tab == 'kargolanacak' %}<td>{{ (c.arizalar_tamamlandi_at or c.updated_at).strftime('%d.%m.%Y %H:%M') if c.arizalar_tamamlandi_at or c.updated_at else '—' }}</td>{% else %}<td>{{ c.created_at.strftime('%d.%m.%Y %H:%M') }}</td>{% endif %}
+                        <td class="actions">
+                            <a href="{{ url_for('secretary.cihaz_detay', id=c.id, return_tab=aktif_tab, return_page=pagination.page, q=arama, return_sort=sort, return_order=order) }}" class="btn btn-sm">Detay</a>
+                            {% if c.durum == 'musteri_onaylamadi' %}
+                            <form id="musteriye-iade-{{ c.id }}" method="post" action="{{ url_for('secretary.musteriye_iade_et', id=c.id) }}" style="display:inline;">
+                                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                                <button type="button" class="btn btn-sm btn-success musteriye-iade-onay-btn" data-form-id="musteriye-iade-{{ c.id }}">Firmaya iade et</button>
+                            </form>
+                            {% endif %}
+                            {% if aktif_tab not in ('teknik_serviste', 'musteriye_gonderilen', 'kargolanacak') and c.durum not in ('on_inceleme_sekreterlikte', 'musteri_onay_bekliyor', 'musteri_onayladi', 'musteri_onaylamadi') %}<a href="{{ url_for('secretary.cihaz_duzenle', id=c.id) }}" class="btn btn-sm">Düzenle</a>{% endif %}
+                            {% if c.durum == 'on_inceleme_sekreterlikte' %}
+                            <button type="button" class="btn btn-sm btn-primary rapor-musteriye-onay-btn" data-modal-id="rapor-fiyat-modal-{{ c.id }}">Ön inceleme raporunu firmaya gönder</button>
+                            {% endif %}
+                            {% if c.durum == 'geldi' %}
+                            <form id="teknik-gonder-{{ c.id }}" method="post" action="{{ url_for('secretary.teknik_servise_gonder', id=c.id) }}" style="display:inline;">
+                                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                                <input type="hidden" name="return_page" value="{{ pagination.page }}">
+                                <input type="hidden" name="return_q" value="{{ arama }}">
+                                <input type="hidden" name="return_tab" value="{{ aktif_tab }}">
+                                <button type="button" form="teknik-gonder-{{ c.id }}" class="btn btn-sm btn-primary teknik-gonder-onay-btn" data-form-id="teknik-gonder-{{ c.id }}">Teknik servise gönder</button>
+                            </form>
+                            {% endif %}
+                            {% if c.durum == 'musteri_onayladi' %}
+                            <form id="teknik-tamir-gonder-{{ c.id }}" method="post" action="{{ url_for('secretary.teknik_servise_tamir_gonder', id=c.id) }}" style="display:inline;">
+                                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                                <input type="hidden" name="return_tab" value="{{ aktif_tab }}">
+                                <input type="hidden" name="return_page" value="{{ pagination.page }}">
+                                <input type="hidden" name="return_q" value="{{ arama }}">
+                                <input type="hidden" name="return_sort" value="{{ sort }}">
+                                <input type="hidden" name="return_order" value="{{ order }}">
+                                <button type="submit" class="btn btn-sm btn-primary">Teknik servise gönder</button>
+                            </form>
+                            {% endif %}
+                            {% if c.durum == 'arizalar_tamamlandi' %}
+                            <form id="kargola-{{ c.id }}" method="post" action="{{ url_for('secretary.kargolandı_isaretle', id=c.id) }}" style="display:inline;">
+                                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                                <input type="hidden" name="return_page" value="{{ pagination.page }}">
+                                <input type="hidden" name="return_q" value="{{ arama }}">
+                                <input type="hidden" name="return_tab" value="{{ aktif_tab }}">
+                                <input type="hidden" name="return_sort" value="{{ sort }}">
+                                <input type="hidden" name="return_order" value="{{ order }}">
+                                <button type="button" class="btn btn-sm btn-success kargola-onay-btn" data-form-id="kargola-{{ c.id }}">Kargolandı işaretle</button>
+                            </form>
+                            {% endif %}
+                            {% if c.durum == 'geldi' and aktif_tab in ('all', 'henuz_gonderilmedi') %}
+                            <form method="post" action="{{ url_for('secretary.cihaz_sil', id=c.id) }}" style="display:inline;">
+                                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                                <input type="hidden" name="return_tab" value="{{ aktif_tab }}">
+                                <input type="hidden" name="return_page" value="{{ pagination.page }}">
+                                <input type="hidden" name="return_q" value="{{ arama }}">
+                                <input type="hidden" name="return_sort" value="{{ sort }}">
+                                <input type="hidden" name="return_order" value="{{ order }}">
+                                <button type="submit" class="btn btn-sm btn-sil">Sil</button>
+                            </form>
+                            {% endif %}
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        {{ render_pagination(pagination, 'secretary.index', info_text='kayıt', tab=aktif_tab, q=arama, sort=sort, order=order, tarih_baslangic=tarih_baslangic|default(''), tarih_bitis=tarih_bitis|default('')) }}
+        {% else %}
+        <p class="empty">{% if arama or ((aktif_tab == 'musteriye_gonderilen' or aktif_tab == 'all') and (tarih_baslangic or tarih_bitis)) %}Seçilen filtreye uygun sonuç bulunamadı.{% elif aktif_tab != 'all' %}Bu sekmede kayıt bulunamadı.{% else %}Henüz cihaz kaydı yok. Yukarıdaki butonlarla ekleyin.{% endif %}</p>
+        {% endif %}
+        {% endif %}
+    </div>
+</div>
+{% if pagination.items %}
+<div id="kargola-onay-modal" class="modal-overlay" role="dialog" aria-labelledby="kargola-modal-title" aria-modal="true" hidden>
+    <div class="modal-content">
+        <p id="kargola-modal-title" class="modal-message">Bu işlemi geri alamazsınız. Arızası tamamlanan cihazları firmaya göndermek istediğinize emin misiniz?</p>
+        <div class="modal-actions">
+            <button type="button" class="btn btn-primary" id="kargola-modal-evet">Evet</button>
+            <button type="button" class="btn btn-outline" id="kargola-modal-iptal">İptal</button>
+        </div>
+    </div>
+</div>
+<div id="teknik-gonder-onay-modal" class="modal-overlay" role="dialog" aria-labelledby="teknik-gonder-modal-title" aria-modal="true" hidden>
+    <div class="modal-content">
+        <p id="teknik-gonder-modal-title" class="modal-message">Cihazı ön inceleme için teknik servise göndermek üzeresiniz. Devam etmek istiyor musunuz?</p>
+        <div class="modal-actions">
+            <button type="button" class="btn btn-primary" id="teknik-gonder-modal-evet">Evet</button>
+            <button type="button" class="btn btn-outline" id="teknik-gonder-modal-iptal">İptal</button>
+        </div>
+    </div>
+</div>
+{% for c in pagination.items %}
+{% if (aktif_tab != 'musteri_cihazlari' or secili_musteri) and c.durum == 'on_inceleme_sekreterlikte' %}
+<div id="rapor-fiyat-modal-{{ c.id }}" class="modal-overlay" role="dialog" aria-labelledby="rapor-fiyat-title-{{ c.id }}" aria-modal="true" hidden>
+    <div class="modal-content modal-fiyat-form">
+        <h3 id="rapor-fiyat-title-{{ c.id }}" class="modal-title">Ön inceleme raporu – fiyat girişi</h3>
+        <p class="modal-subtitle"><strong>Marka:</strong> {{ c.cihaz_marka or c.cihaz_bilgisi or '–' }} &nbsp; <strong>Model:</strong> {{ c.cihaz_model or '–' }}</p>
+        <form id="rapor-fiyat-form-{{ c.id }}" method="post" action="{{ url_for('secretary.raporu_musteriye_gonder', id=c.id) }}" class="rapor-fiyat-form">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+            <input type="hidden" name="return_tab" value="{{ aktif_tab }}">
+            <input type="hidden" name="return_page" value="{{ pagination.page }}">
+            <input type="hidden" name="return_q" value="{{ arama }}">
+            <input type="hidden" name="return_sort" value="{{ sort }}">
+            <input type="hidden" name="return_order" value="{{ order }}">
+            <div class="fault-fiyat-list">
+                {% for f in c.faults.order_by('id') %}
+                <div class="fault-fiyat-row">
+                    <label for="fault-fiyat-{{ f.id }}">{{ f.aciklama[:80] }}{% if f.aciklama|length > 80 %}...{% endif %}</label>
+                    <input type="number" id="fault-fiyat-{{ f.id }}" name="fault_fiyat_{{ f.id }}" step="0.01" min="0" required placeholder="0,00">
+                    <select name="fault_para_birimi_{{ f.id }}" class="fault-para-birimi-select">
+                        <option value="TL" {% if (f.para_birimi or c.on_inceleme_para_birimi or 'TL') == 'TL' %}selected{% endif %}>TL (₺)</option>
+                        <option value="USD" {% if (f.para_birimi or '') == 'USD' %}selected{% endif %}>USD ($)</option>
+                        <option value="EUR" {% if (f.para_birimi or '') == 'EUR' %}selected{% endif %}>EUR (€)</option>
+                        <option value="GBP" {% if (f.para_birimi or '') == 'GBP' %}selected{% endif %}>GBP (£)</option>
+                    </select>
+                </div>
+                {% endfor %}
+                {% if not c.faults.count() %}
+                <div class="fault-fiyat-row">
+                    <label for="fault-genel-{{ c.id }}">Genel tahmini fiyat</label>
+                    <input type="number" id="fault-genel-{{ c.id }}" name="on_inceleme_fiyat" step="0.01" min="0" required placeholder="0,00">
+                    <select name="on_inceleme_para_birimi" class="fault-para-birimi-select">
+                        <option value="TL" {% if (c.on_inceleme_para_birimi or 'TL') == 'TL' %}selected{% endif %}>TL (₺)</option>
+                        <option value="USD" {% if (c.on_inceleme_para_birimi or '') == 'USD' %}selected{% endif %}>USD ($)</option>
+                        <option value="EUR" {% if (c.on_inceleme_para_birimi or '') == 'EUR' %}selected{% endif %}>EUR (€)</option>
+                        <option value="GBP" {% if (c.on_inceleme_para_birimi or '') == 'GBP' %}selected{% endif %}>GBP (£)</option>
+                    </select>
+                </div>
+                {% endif %}
+            </div>
+            <p class="fiyat-toplam"><strong>Toplam:</strong> <span id="rapor-toplam-{{ c.id }}" class="toplam-deger">0,00</span></p>
+            <div class="modal-actions">
+                <button type="button" class="btn btn-primary rapor-fiyat-gonder-btn" data-form-id="rapor-fiyat-form-{{ c.id }}" data-modal-id="rapor-fiyat-modal-{{ c.id }}" data-toplam-id="rapor-toplam-{{ c.id }}">Raporu firmaya gönder</button>
+                <button type="button" class="btn btn-outline rapor-fiyat-iptal-btn" data-modal-id="rapor-fiyat-modal-{{ c.id }}">İptal</button>
+            </div>
+        </form>
+    </div>
+</div>
+{% endif %}
+{% endfor %}
+<div id="rapor-musteriye-onay-modal" class="modal-overlay" role="dialog" aria-labelledby="rapor-musteriye-modal-title" aria-modal="true" hidden>
+    <div class="modal-content">
+        <p id="rapor-musteriye-modal-title" class="modal-message">Cihaza ait ön inceleme raporunu firmaya göndermek üzeresiniz. Devam etmek istiyor musunuz?</p>
+        <div class="modal-actions">
+            <button type="button" class="btn btn-primary" id="rapor-musteriye-modal-evet">Evet</button>
+            <button type="button" class="btn btn-outline" id="rapor-musteriye-modal-iptal">İptal</button>
+        </div>
+    </div>
+</div>
+<div id="musteriye-iade-onay-modal" class="modal-overlay" role="dialog" aria-labelledby="musteriye-iade-modal-title" aria-modal="true" hidden>
+    <div class="modal-content">
+        <p id="musteriye-iade-modal-title" class="modal-message">Cihaza hiçbir işlem yapılmadan firmaya iade etmek üzeresiniz. Devam etmek istiyor musunuz?</p>
+        <div class="modal-actions">
+            <button type="button" class="btn btn-primary" id="musteriye-iade-modal-evet">Evet</button>
+            <button type="button" class="btn btn-outline" id="musteriye-iade-modal-iptal">İptal</button>
+        </div>
+    </div>
+</div>
+<script>
+(function() {
+    var modal = document.getElementById('kargola-onay-modal');
+    var btnEvet = document.getElementById('kargola-modal-evet');
+    var btnIptal = document.getElementById('kargola-modal-iptal');
+    var pendingFormId = null;
+    document.querySelectorAll('.kargola-onay-btn').forEach(function(btn) {
+        btn.addEventListener('click', function() {
+            pendingFormId = this.getAttribute('data-form-id');
+            if (pendingFormId && modal) modal.hidden = false;
+        });
+    });
+    if (btnEvet) btnEvet.addEventListener('click', function() {
+        if (pendingFormId) {
+            var f = document.getElementById(pendingFormId);
+            if (f) f.submit();
+        }
+        pendingFormId = null;
+        if (modal) modal.hidden = true;
+    });
+    if (btnIptal) btnIptal.addEventListener('click', function() { pendingFormId = null; if (modal) modal.hidden = true; });
+    if (modal) modal.addEventListener('click', function(e) { if (e.target === modal) { pendingFormId = null; modal.hidden = true; } });
+})();
+(function() {
+    var modal = document.getElementById('musteriye-iade-onay-modal');
+    var btnEvet = document.getElementById('musteriye-iade-modal-evet');
+    var btnIptal = document.getElementById('musteriye-iade-modal-iptal');
+    var pendingFormId = null;
+    document.querySelectorAll('.musteriye-iade-onay-btn').forEach(function(btn) {
+        btn.addEventListener('click', function() {
+            pendingFormId = this.getAttribute('data-form-id');
+            if (pendingFormId && modal) modal.hidden = false;
+        });
+    });
+    if (btnEvet) btnEvet.addEventListener('click', function() {
+        if (pendingFormId) {
+            var f = document.getElementById(pendingFormId);
+            if (f) f.submit();
+        }
+        pendingFormId = null;
+        if (modal) modal.hidden = true;
+    });
+    if (btnIptal) btnIptal.addEventListener('click', function() { pendingFormId = null; if (modal) modal.hidden = true; });
+    if (modal) modal.addEventListener('click', function(e) { if (e.target === modal) { pendingFormId = null; modal.hidden = true; } });
+})();
+(function() {
+    var modal = document.getElementById('teknik-gonder-onay-modal');
+    var btnEvet = document.getElementById('teknik-gonder-modal-evet');
+    var btnIptal = document.getElementById('teknik-gonder-modal-iptal');
+    var pendingFormId = null;
+    var pendingBulkForm = null;
+    document.querySelectorAll('.teknik-gonder-onay-btn').forEach(function(btn) {
+        btn.addEventListener('click', function() {
+            pendingFormId = this.getAttribute('data-form-id');
+            pendingBulkForm = null;
+            if (pendingFormId && modal) modal.hidden = false;
+        });
+    });
+    var topluBtn = document.getElementById('toplu-gonder-btn');
+    if (topluBtn) topluBtn.addEventListener('click', function() {
+        if (topluBtn.disabled) return;
+        pendingFormId = null;
+        pendingBulkForm = document.getElementById('toplu-gonder-form');
+        if (pendingBulkForm && modal) modal.hidden = false;
+    });
+    document.querySelectorAll('.musteri-cihazlari-teknik-gonder-btn').forEach(function(btn) {
+        btn.addEventListener('click', function() {
+            pendingFormId = null;
+            pendingBulkForm = document.getElementById('musteri-cihazlari-toplu-form');
+            if (pendingBulkForm && modal) modal.hidden = false;
+        });
+    });
+    if (btnEvet) btnEvet.addEventListener('click', function() {
+        if (pendingFormId) {
+            var f = document.getElementById(pendingFormId);
+            if (f) f.submit();
+        } else if (pendingBulkForm) {
+            var inp = document.createElement('input');
+            inp.type = 'hidden';
+            inp.name = 'toplu_islem';
+            inp.value = 'teknik_servise_gonder';
+            pendingBulkForm.appendChild(inp);
+            pendingBulkForm.submit();
+        }
+        pendingFormId = null;
+        pendingBulkForm = null;
+        if (modal) modal.hidden = true;
+    });
+    if (btnIptal) btnIptal.addEventListener('click', function() { pendingFormId = null; pendingBulkForm = null; if (modal) modal.hidden = true; });
+    if (modal) modal.addEventListener('click', function(e) { if (e.target === modal) { pendingFormId = null; pendingBulkForm = null; modal.hidden = true; } });
+})();
+(function() {
+    var pendingFormId = null;
+    document.querySelectorAll('.rapor-musteriye-onay-btn').forEach(function(btn) {
+        btn.addEventListener('click', function() {
+            var mid = this.getAttribute('data-modal-id');
+            var priceModal = mid ? document.getElementById(mid) : null;
+            if (priceModal) priceModal.hidden = false;
+        });
+    });
+    document.querySelectorAll('.rapor-fiyat-iptal-btn').forEach(function(btn) {
+        btn.addEventListener('click', function() {
+            var mid = this.getAttribute('data-modal-id');
+            var m = mid ? document.getElementById(mid) : null;
+            if (m) m.hidden = true;
+        });
+    });
+    document.querySelectorAll('.rapor-fiyat-form').forEach(function(form) {
+        var inputs = form.querySelectorAll('input[type="number"]');
+        var toplamSpan = form.closest('.modal-content').querySelector('.toplam-deger');
+        function updateToplam() {
+            var totals = {};
+            inputs.forEach(function(inp) {
+                var v = parseFloat(String(inp.value).replace(',', '.')) || 0;
+                if (v < 0) return;
+                var row = inp.closest('.fault-fiyat-row');
+                if (!row) return;
+                var sel = row.querySelector('select');
+                var code = (sel && sel.value) ? sel.value.toUpperCase() : 'TL';
+                if (!totals[code]) totals[code] = 0;
+                totals[code] += v;
+            });
+            if (toplamSpan) {
+                var parts = [];
+                var order = ['TL', 'USD', 'EUR', 'GBP'];
+                var symbols = { TL: '₺', USD: '$', EUR: '€', GBP: '£' };
+                order.forEach(function(code) {
+                    if (totals[code]) {
+                        parts.push(totals[code].toLocaleString('tr-TR', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + ' ' + (symbols[code] || code));
+                    }
+                });
+                Object.keys(totals).forEach(function(code) {
+                    if (order.indexOf(code) === -1) {
+                        parts.push(totals[code].toLocaleString('tr-TR', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + ' ' + code);
+                    }
+                });
+                toplamSpan.textContent = parts.length ? parts.join(' + ') : '0,00';
+            }
+        }
+        inputs.forEach(function(inp) { inp.addEventListener('input', updateToplam); inp.addEventListener('change', updateToplam); });
+        updateToplam();
+    });
+    document.querySelectorAll('.rapor-fiyat-gonder-btn').forEach(function(btn) {
+        btn.addEventListener('click', function() {
+            var fid = this.getAttribute('data-form-id');
+            var form = document.getElementById(fid);
+            if (!form) return;
+            var inputs = form.querySelectorAll('input[type="number"]');
+            var ok = true;
+            inputs.forEach(function(inp) {
+                var v = parseFloat(String(inp.value).replace(',', '.')) || 0;
+                if (v < 0) ok = false;
+            });
+            if (!form.checkValidity() || !ok) {
+                form.reportValidity();
+                return;
+            }
+            pendingFormId = fid;
+            var onayModal = document.getElementById('rapor-musteriye-onay-modal');
+            if (onayModal) onayModal.hidden = false;
+        });
+    });
+    var onayModal = document.getElementById('rapor-musteriye-onay-modal');
+    var btnEvet = document.getElementById('rapor-musteriye-modal-evet');
+    var btnIptal = document.getElementById('rapor-musteriye-modal-iptal');
+    if (btnEvet) btnEvet.addEventListener('click', function() {
+        if (pendingFormId) {
+            var f = document.getElementById(pendingFormId);
+            if (f) f.submit();
+        }
+        pendingFormId = null;
+        if (onayModal) onayModal.hidden = true;
+    });
+    if (btnIptal) btnIptal.addEventListener('click', function() { pendingFormId = null; if (onayModal) onayModal.hidden = true; });
+    if (onayModal) onayModal.addEventListener('click', function(e) { if (e.target === onayModal) { pendingFormId = null; onayModal.hidden = true; } });
+})();
+</script>
+{% endif %}
+<script>
+(function() {
+    var form = document.getElementById('toplu-gonder-form');
+    if (!form) return;
+    var selectAllGeldi = document.getElementById('select-all-geldi');
+    var selectAllKargo = document.getElementById('select-all-kargo');
+    var selectAllRapor = document.getElementById('select-all-rapor');
+    var geldiCheckboxes = document.querySelectorAll('.cihaz-geldi-check');
+    var kargoCheckboxes = document.querySelectorAll('.cihaz-kargo-check');
+    var raporCheckboxes = document.querySelectorAll('.cihaz-rapor-check');
+    var btnGonder = document.getElementById('toplu-gonder-btn');
+    var btnKargo = document.getElementById('toplu-kargo-btn');
+    var btnRapor = document.getElementById('toplu-rapor-btn');
+
+    function updateButtons() {
+        if (btnGonder) btnGonder.disabled = document.querySelectorAll('.cihaz-geldi-check:checked').length === 0;
+        if (btnKargo) btnKargo.disabled = document.querySelectorAll('.cihaz-kargo-check:checked').length === 0;
+        if (btnRapor) btnRapor.disabled = document.querySelectorAll('.cihaz-rapor-check:checked').length === 0;
+    }
+
+    function updateSelectAllGeldi() {
+        if (!selectAllGeldi) return;
+        var all = document.querySelectorAll('.cihaz-geldi-check');
+        var checked = document.querySelectorAll('.cihaz-geldi-check:checked').length;
+        selectAllGeldi.checked = all.length > 0 && checked === all.length;
+        selectAllGeldi.indeterminate = checked > 0 && checked < all.length;
+    }
+
+    function updateSelectAllKargo() {
+        if (!selectAllKargo) return;
+        var all = document.querySelectorAll('.cihaz-kargo-check');
+        var checked = document.querySelectorAll('.cihaz-kargo-check:checked').length;
+        selectAllKargo.checked = all.length > 0 && checked === all.length;
+        selectAllKargo.indeterminate = checked > 0 && checked < all.length;
+    }
+
+    function updateSelectAllRapor() {
+        if (!selectAllRapor) return;
+        var all = document.querySelectorAll('.cihaz-rapor-check');
+        var checked = document.querySelectorAll('.cihaz-rapor-check:checked').length;
+        selectAllRapor.checked = all.length > 0 && checked === all.length;
+        selectAllRapor.indeterminate = checked > 0 && checked < all.length;
+    }
+
+    if (selectAllGeldi) {
+        selectAllGeldi.addEventListener('change', function() {
+            geldiCheckboxes.forEach(function(cb) { cb.checked = selectAllGeldi.checked; });
+            updateButtons();
+            updateSelectAllKargo();
+        });
+    }
+    if (selectAllKargo) {
+        selectAllKargo.addEventListener('change', function() {
+            kargoCheckboxes.forEach(function(cb) { cb.checked = selectAllKargo.checked; });
+            updateButtons();
+            updateSelectAllGeldi();
+            updateSelectAllRapor();
+        });
+    }
+    if (selectAllRapor) {
+        selectAllRapor.addEventListener('change', function() {
+            raporCheckboxes.forEach(function(cb) { cb.checked = selectAllRapor.checked; });
+            updateButtons();
+            updateSelectAllGeldi();
+            updateSelectAllKargo();
+        });
+    }
+    geldiCheckboxes.forEach(function(cb) {
+        cb.addEventListener('change', function() { updateButtons(); updateSelectAllGeldi(); updateSelectAllRapor(); });
+    });
+    kargoCheckboxes.forEach(function(cb) {
+        cb.addEventListener('change', function() { updateButtons(); updateSelectAllKargo(); updateSelectAllRapor(); });
+    });
+    raporCheckboxes.forEach(function(cb) {
+        cb.addEventListener('change', function() { updateButtons(); updateSelectAllRapor(); updateSelectAllKargo(); updateSelectAllGeldi(); });
+    });
+    updateButtons();
+    updateSelectAllGeldi();
+    updateSelectAllKargo();
+    updateSelectAllRapor();
+})();
+</script>
+{% endblock %}

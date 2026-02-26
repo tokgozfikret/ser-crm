@@ -1,0 +1,216 @@
+{% extends "base.html" %}
+{% block title %}Cihaz ekle - SER-CRM{% endblock %}
+{% block content %}
+<div class="container page">
+    <div class="page-header">
+        <h1>Cihaz ekle</h1>
+        <div>
+            {% if son_cihaz %}
+            <a href="{{ url_for('secretary.coklu_cihaz_ekle') }}" class="btn btn-outline" style="margin-right:0.5rem;">Temizle</a>
+            {% else %}
+            <a href="{{ url_for('secretary.coklu_cihaz_ekle', son_musteri=1) }}" class="btn btn-outline" style="margin-right:0.5rem;">Son firmadan doldur</a>
+            {% endif %}
+            <a href="{{ url_for('secretary.index') }}" class="btn btn-outline">← Listeye dön</a>
+        </div>
+    </div>
+    <div class="card">
+        <p class="form-hint">Firma bilgilerini bir kez girin, ardından her cihaz için satır ekleyin.</p>
+        <form method="post" action="{{ url_for('secretary.coklu_cihaz_ekle') }}" id="coklu-form" class="form-modern">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+            <input type="hidden" name="cihaz_sayisi" id="cihaz_sayisi" value="1">
+
+            <h3 class="form-section-title">Firma bilgileri (tek seferlik)</h3>
+            <div class="form-group">
+                <label for="customer-select">Firma seç (varsa)</label>
+                <select id="customer-select" class="customer-select">
+                    <option value="">— Firma seçin —</option>
+                    {% if customers %}
+                    {% for c in customers %}
+                    <option value="{{ c.id }}"
+                            data-ad="{{ c.ad }}"
+                            data-telefon="{{ c.telefon or '' }}"
+                            data-adres="{{ c.adres or '' }}"
+                            data-email="{{ c.email or '' }}"
+                            data-lokasyon="{{ c.lokasyon_proje or '' }}">
+                        {{ c.ad }}{% if c.telefon %} ({{ c.telefon }}){% endif %}
+                    </option>
+                    {% endfor %}
+                    {% endif %}
+                    <option value="__yeni__">+ Yeni firma ekle</option>
+                </select>
+                <input type="hidden" name="customer_id" id="customer_id">
+            </div>
+            <div class="form-row-2">
+                <div class="form-group">
+                    <label for="musteri_adi">Firma adı *</label>
+                    <input type="text" id="musteri_adi" name="musteri_adi" required placeholder="Ad Soyad veya Firma" value="{{ son_cihaz.musteri_adi if son_cihaz else '' }}">
+                </div>
+                <div class="form-group">
+                    <label for="musteri_telefon">Firma telefon</label>
+                    <input type="text" id="musteri_telefon" name="musteri_telefon" placeholder="05xx xxx xx xx" value="{{ son_cihaz.musteri_telefon or '' if son_cihaz else '' }}">
+                </div>
+            </div>
+            <div class="form-group">
+                <label for="musteri_email">Firma e-posta *</label>
+                <input type="email" id="musteri_email" name="musteri_email" required placeholder="ornek@email.com" value="{{ son_cihaz.musteri_email or '' if son_cihaz else '' }}">
+            </div>
+            <div class="form-group">
+                <label for="musteri_adres">Firma adres</label>
+                <textarea id="musteri_adres" name="musteri_adres" rows="2" placeholder="Açık adres bilgisi...">{{ son_cihaz.musteri_adres or '' if son_cihaz else '' }}</textarea>
+            </div>
+            <div class="form-group">
+                <label for="musteri_lokasyon">Lokasyon / Proje</label>
+                <input type="text" id="musteri_lokasyon" name="musteri_lokasyon" placeholder="Örn: Ankara Merkez Projesi" value="{{ son_cihaz.customer.lokasyon_proje if son_cihaz and son_cihaz.customer and son_cihaz.customer.lokasyon_proje else '' }}">
+            </div>
+
+            <h3 class="form-section-title">Cihazlar</h3>
+            <div id="cihaz-rows">
+                <div class="cihaz-row" data-index="0">
+                    <div class="cihaz-row-header">Cihaz 1</div>
+                    <div class="form-row-3">
+                        <div class="form-group">
+                            <label>Cihaz markası *</label>
+                            <input type="text" name="cihaz_marka_0" required placeholder="Örn: Motorola">
+                        </div>
+                        <div class="form-group">
+                            <label>Model</label>
+                            <input type="text" name="cihaz_model_0" placeholder="Örn: SL1600">
+                        </div>
+                        <div class="form-group">
+                            <label>Seri no</label>
+                            <input type="text" name="seri_no_0" placeholder="Seri numarası">
+                        </div>
+                    </div>
+                    <div class="form-row-1">
+                        <div class="form-group">
+                            <label>Açıklama</label>
+                            <input type="text" name="aciklama_0" placeholder="Şikayet / not">
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <button type="button" id="cihaz-ekle-btn" class="btn btn-outline" style="margin-top: 0.5rem;">+ Cihaz satırı ekle</button>
+
+            <div class="form-actions" style="margin-top: 1.5rem;">
+                <button type="submit" class="btn btn-primary">Tüm cihazları kaydet</button>
+                <a href="{{ url_for('secretary.index') }}" class="btn btn-outline">İptal</a>
+            </div>
+        </form>
+    </div>
+</div>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/choices.js/public/assets/styles/choices.min.css">
+<script src="https://cdn.jsdelivr.net/npm/choices.js/public/assets/scripts/choices.min.js"></script>
+<script>
+(function() {
+    let sayac = 1;
+    const container = document.getElementById('cihaz-rows');
+    const sayacInput = document.getElementById('cihaz_sayisi');
+
+    function removeRow(ev) {
+        const row = ev.target.closest('.cihaz-row');
+        if (!row || document.querySelectorAll('.cihaz-row').length <= 1) return;
+        row.remove();
+        sayac--;
+        sayacInput.value = sayac;
+        document.querySelectorAll('.cihaz-row').forEach(function(r, i) {
+            const header = r.querySelector('.cihaz-row-header');
+            header.innerHTML = 'Cihaz ' + (i + 1) + (i > 0 ? ' <button type="button" class="btn-remove-row">Kaldır</button>' : '');
+            r.querySelector('input[name^="cihaz_marka_"]').name = 'cihaz_marka_' + i;
+            r.querySelector('input[name^="cihaz_model_"]').name = 'cihaz_model_' + i;
+            r.querySelector('input[name^="seri_no_"]').name = 'seri_no_' + i;
+            r.querySelector('input[name^="aciklama_"]').name = 'aciklama_' + i;
+        });
+    }
+
+    container.addEventListener('click', function(e) {
+        if (e.target.classList.contains('btn-remove-row')) removeRow(e);
+    });
+
+    document.getElementById('cihaz-ekle-btn').addEventListener('click', function() {
+        const row = document.createElement('div');
+        row.className = 'cihaz-row';
+        row.innerHTML = '<div class="cihaz-row-header">Cihaz ' + (sayac + 1) + ' <button type="button" class="btn-remove-row">Kaldır</button></div>' +
+            '<div class="form-row-3">' +
+            '<div class="form-group"><label>Cihaz markası *</label><input type="text" name="cihaz_marka_' + sayac + '" placeholder="Örn: Motorola"></div>' +
+            '<div class="form-group"><label>Model</label><input type="text" name="cihaz_model_' + sayac + '" placeholder="Örn: SL1600"></div>' +
+            '<div class="form-group"><label>Seri no</label><input type="text" name="seri_no_' + sayac + '" placeholder="Seri numarası"></div>' +
+            '</div>' +
+            '<div class="form-row-1">' +
+            '<div class="form-group"><label>Açıklama</label><input type="text" name="aciklama_' + sayac + '" placeholder="Şikayet / not"></div>' +
+            '</div>';
+        container.appendChild(row);
+        sayac++;
+        sayacInput.value = sayac;
+    });
+
+    document.getElementById('coklu-form').addEventListener('submit', function() {
+        sayacInput.value = document.querySelectorAll('.cihaz-row').length;
+    });
+})();
+
+(function () {
+    var customerSelect = document.getElementById('customer-select');
+    var customerIdInput = document.getElementById('customer_id');
+    var inputAd = document.getElementById('musteri_adi');
+    var inputTel = document.getElementById('musteri_telefon');
+    var inputAdres = document.getElementById('musteri_adres');
+    var inputEmail = document.getElementById('musteri_email');
+    var inputLokasyon = document.getElementById('musteri_lokasyon');
+
+    function fillCustomerFieldsFromOption(opt) {
+        if (!inputAd || !inputTel || !inputAdres || !inputEmail || !inputLokasyon) return;
+        if (!opt) {
+            inputAd.value = '';
+            inputTel.value = '';
+            inputAdres.value = '';
+            inputEmail.value = '';
+            inputLokasyon.value = '';
+            return;
+        }
+        inputAd.value = opt.getAttribute('data-ad') || '';
+        inputTel.value = opt.getAttribute('data-telefon') || '';
+        inputAdres.value = opt.getAttribute('data-adres') || '';
+        inputEmail.value = opt.getAttribute('data-email') || '';
+        inputLokasyon.value = opt.getAttribute('data-lokasyon') || '';
+    }
+
+    if (customerSelect) {
+        if (window.Choices) {
+            customerSelect._choicesInstance = new Choices(customerSelect, {
+                searchEnabled: true,
+                itemSelectText: '',
+                shouldSort: false,
+                position: 'bottom',
+                placeholder: true,
+                placeholderValue: '— Firma seçin —',
+                searchPlaceholderValue: 'Firma ara...',
+                noResultsText: 'Sonuç bulunamadı',
+                noChoicesText: 'Gösterilebilecek firma yok'
+            });
+        }
+        customerSelect.addEventListener('change', function () {
+            var val = customerSelect._choicesInstance
+                ? customerSelect._choicesInstance.getValue(true)
+                : customerSelect.value;
+            if (Array.isArray(val)) val = val[0] || '';
+            if (!val) {
+                if (customerIdInput) customerIdInput.value = '';
+                fillCustomerFieldsFromOption(null);
+                return;
+            }
+            if (val === '__yeni__') {
+                if (customerIdInput) customerIdInput.value = '';
+                fillCustomerFieldsFromOption(null);
+                if (inputAd) inputAd.focus();
+                return;
+            }
+            var opt = customerSelect.querySelector('option[value="' + val + '"]');
+            if (opt) {
+                if (customerIdInput) customerIdInput.value = opt.value;
+                fillCustomerFieldsFromOption(opt);
+            }
+        });
+    }
+})();
+</script>
+{% endblock %}

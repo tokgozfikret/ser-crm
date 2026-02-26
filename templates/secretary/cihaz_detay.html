@@ -1,0 +1,181 @@
+{% extends "base.html" %}
+{% block title %}Cihaz #{{ cihaz.id }} - SER-CRM{% endblock %}
+{% block content %}
+<div class="container page">
+    <div class="page-header">
+        <h1>Cihaz detayı #{{ cihaz.id }}</h1>
+        <div class="header-actions">
+            {% if return_tab == 'musteri_cihazlari' and return_musteri_adi %}
+            <a href="{{ url_for('secretary.index', tab='musteri_cihazlari', musteri_adi=return_musteri_adi, musteri_telefon=return_musteri_telefon or '', q=return_q, page=return_page) }}" class="btn btn-outline">← Firma cihazlarına dön</a>
+            {% endif %}
+            {% if return_tab == 'musteri_cihazlari' %}
+            <a href="{{ url_for('secretary.index', tab='musteri_cihazlari', q=return_q, page=1) }}" class="btn btn-outline">← Listeye dön</a>
+            {% else %}
+            <a href="{{ url_for('secretary.index', tab=return_tab, page=return_page, q=return_q, sort=return_sort, order=return_order) }}" class="btn btn-outline">← Listeye dön</a>
+            {% endif %}
+        </div>
+    </div>
+    <div class="card">
+        <div class="detail-header-row">
+            <h2 class="detail-title">
+                <span class="detail-title-main">{{ cihaz.musteri_adi }}</span>
+                <span class="pill pill-muted">Cihaz #{{ cihaz.id }}</span>
+            </h2>
+            <div class="detail-header-actions">
+                <span class="pill pill-info">
+                    {{ cihaz.DURUMLAR.get(cihaz.durum, cihaz.durum) }}
+                </span>
+                {% if cihaz.durum in ('musteri_onay_bekliyor', 'musteri_onayladi', 'musteri_onaylamadi') %}
+                <a href="{{ url_for('secretary.cihaz_on_inceleme_pdf', id=cihaz.id) }}" class="btn btn-sm btn-outline" style="margin-left:0.5rem;">
+                    📄 Ön inceleme PDF indir
+                </a>
+                {% endif %}
+            </div>
+        </div>
+
+        {% if first_seen_date %}
+        <div class="serial-warning">
+            Bu cihaz daha önce {{ first_seen_date.strftime('%d.%m.%Y') }} tarihinde gelmiştir.
+        </div>
+        {% endif %}
+
+        <div class="detail-grid">
+            <section class="detail-section">
+                <h3>Firma bilgileri</h3>
+                <table class="detail-table">
+                    <tr><th>Firma adı</th><td>{{ cihaz.musteri_adi }}</td></tr>
+                    <tr><th>Yetkili kişi</th><td>{{ cihaz.customer.yetkili_kisi if cihaz.customer and cihaz.customer.yetkili_kisi else '-' }}</td></tr>
+                    <tr><th>Telefon</th><td>{{ cihaz.musteri_telefon or '-' }}</td></tr>
+                    <tr><th>Lokasyon / Proje</th><td>{{ cihaz.customer.lokasyon_proje if cihaz.customer and cihaz.customer.lokasyon_proje else 'Lokasyon / proje yok' }}</td></tr>
+                    <tr><th>E-posta</th><td>{{ cihaz.musteri_email or '-' }}</td></tr>
+                    <tr><th>Adres</th><td>{{ cihaz.musteri_adres or '-' }}</td></tr>
+                    <tr><th>Açıklama</th><td>{{ cihaz.aciklama or '-' }}</td></tr>
+                </table>
+            </section>
+
+            <section class="detail-section">
+                <h3>Cihaz bilgileri</h3>
+                <table class="detail-table">
+                    <tr><th>Cihaz markası</th><td>{{ cihaz.cihaz_marka or cihaz.cihaz_bilgisi }}</td></tr>
+                    <tr><th>Model</th><td>{{ cihaz.cihaz_model or '-' }}</td></tr>
+                    <tr><th>Seri numarası</th><td>{{ cihaz.seri_no or '-' }}</td></tr>
+                </table>
+            </section>
+        </div>
+        {% include 'includes/surec_tarihleri.html' %}
+        {% if cihaz.faults.count() %}
+        <h3 class="form-section-title">Teknik servis arızaları</h3>
+        <ul class="fault-list">
+            {% for f in cihaz.faults %}
+            <li>
+                {{ f.aciklama }}
+                <span class="badge {{ 'badge-success' if f.yapildi else 'badge-warning' }}">{{ 'Yapıldı' if f.yapildi else 'Bekliyor' }}</span>
+            </li>
+            {% endfor %}
+        </ul>
+        {% endif %}
+        <div class="form-actions" style="margin-top:1rem;">
+            {% if cihaz.durum not in ('teknik_serviste', 'teknik_serviste_tamir', 'arizalar_tamamlandi', 'kargolandı', 'on_inceleme_sekreterlikte', 'musteri_onay_bekliyor', 'musteri_onayladi', 'musteri_onaylamadi') %}<a href="{{ url_for('secretary.cihaz_duzenle', id=cihaz.id) }}" class="btn btn-outline">Düzenle</a>{% endif %}
+            {% if cihaz.durum == 'musteri_onayladi' %}
+            <form method="post" action="{{ url_for('secretary.teknik_servise_tamir_gonder', id=cihaz.id) }}" style="display:inline;">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                <button type="submit" class="btn btn-primary">Teknik servise gönder (tamir)</button>
+            </form>
+            {% endif %}
+            {% if cihaz.durum == 'musteri_onaylamadi' %}
+            <form id="musteriye-iade-form" method="post" action="{{ url_for('secretary.musteriye_iade_et', id=cihaz.id) }}" style="display:inline;">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                <button type="button" class="btn btn-success" id="musteriye-iade-onay-btn">Firmaya iade et (kargolandı)</button>
+            </form>
+            <div id="musteriye-iade-onay-modal" class="modal-overlay" role="dialog" aria-labelledby="musteriye-iade-modal-title" aria-modal="true" hidden>
+                <div class="modal-content">
+                    <p id="musteriye-iade-modal-title" class="modal-message">Cihaza hiçbir işlem yapılmadan firmaya iade etmek üzeresiniz. Devam etmek istiyor musunuz?</p>
+                    <div class="modal-actions">
+                        <button type="button" class="btn btn-primary" id="musteriye-iade-modal-evet">Evet</button>
+                        <button type="button" class="btn btn-outline" id="musteriye-iade-modal-iptal">İptal</button>
+                    </div>
+                </div>
+            </div>
+            <script>
+            (function() {
+                var btn = document.getElementById('musteriye-iade-onay-btn');
+                var modal = document.getElementById('musteriye-iade-onay-modal');
+                var form = document.getElementById('musteriye-iade-form');
+                if (!btn || !modal || !form) return;
+                btn.addEventListener('click', function() { modal.hidden = false; });
+                document.getElementById('musteriye-iade-modal-evet').addEventListener('click', function() { modal.hidden = true; form.submit(); });
+                document.getElementById('musteriye-iade-modal-iptal').addEventListener('click', function() { modal.hidden = true; });
+                modal.addEventListener('click', function(e) { if (e.target === modal) modal.hidden = true; });
+            })();
+            </script>
+            {% endif %}
+            {% if cihaz.durum == 'geldi' %}
+            <form id="teknik-gonder-form" method="post" action="{{ url_for('secretary.teknik_servise_gonder', id=cihaz.id) }}" style="display:inline;">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                <input type="hidden" name="return_tab" value="{{ return_tab }}">
+                <input type="hidden" name="return_page" value="{{ return_page }}">
+                <input type="hidden" name="return_q" value="{{ return_q }}">
+                <input type="hidden" name="return_sort" value="{{ return_sort }}">
+                <input type="hidden" name="return_order" value="{{ return_order }}">
+                {% if return_tab == 'musteri_cihazlari' and return_musteri_adi %}<input type="hidden" name="return_musteri_adi" value="{{ return_musteri_adi }}"><input type="hidden" name="return_musteri_telefon" value="{{ return_musteri_telefon or '' }}">{% endif %}
+                <button type="button" class="btn btn-primary" id="teknik-gonder-onay-btn">Teknik servise gönder</button>
+            </form>
+            <div id="teknik-gonder-onay-modal" class="modal-overlay" role="dialog" aria-labelledby="teknik-gonder-modal-title" aria-modal="true" hidden>
+                <div class="modal-content">
+                    <p id="teknik-gonder-modal-title" class="modal-message">Cihazı ön inceleme için teknik servise göndermek üzeresiniz. Devam etmek istiyor musunuz?</p>
+                    <div class="modal-actions">
+                        <button type="button" class="btn btn-primary" id="teknik-gonder-modal-evet">Evet</button>
+                        <button type="button" class="btn btn-outline" id="teknik-gonder-modal-iptal">İptal</button>
+                    </div>
+                </div>
+            </div>
+            <script>
+            (function() {
+                var btn = document.getElementById('teknik-gonder-onay-btn');
+                var modal = document.getElementById('teknik-gonder-onay-modal');
+                var form = document.getElementById('teknik-gonder-form');
+                if (!btn || !modal || !form) return;
+                btn.addEventListener('click', function() { modal.hidden = false; });
+                document.getElementById('teknik-gonder-modal-evet').addEventListener('click', function() { modal.hidden = true; form.submit(); });
+                document.getElementById('teknik-gonder-modal-iptal').addEventListener('click', function() { modal.hidden = true; });
+                modal.addEventListener('click', function(e) { if (e.target === modal) modal.hidden = true; });
+            })();
+            </script>
+            {% endif %}
+            {% if cihaz.durum == 'arizalar_tamamlandi' %}
+            <form id="kargola-form" method="post" action="{{ url_for('secretary.kargolandı_isaretle', id=cihaz.id) }}" style="display:inline;">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                <input type="hidden" name="return_tab" value="{{ return_tab }}">
+                <input type="hidden" name="return_page" value="{{ return_page }}">
+                <input type="hidden" name="return_q" value="{{ return_q }}">
+                <input type="hidden" name="return_sort" value="{{ return_sort }}">
+                <input type="hidden" name="return_order" value="{{ return_order }}">
+                {% if return_tab == 'musteri_cihazlari' and return_musteri_adi %}<input type="hidden" name="return_musteri_adi" value="{{ return_musteri_adi }}"><input type="hidden" name="return_musteri_telefon" value="{{ return_musteri_telefon or '' }}">{% endif %}
+                <button type="button" class="btn btn-success" id="kargola-onay-btn">Kargolandı işaretle</button>
+            </form>
+            <div id="kargola-onay-modal" class="modal-overlay" role="dialog" aria-labelledby="kargola-modal-title" aria-modal="true" hidden>
+                <div class="modal-content">
+                    <p id="kargola-modal-title" class="modal-message">Bu işlemi geri alamazsınız. Arızası tamamlanan cihazları firmaya göndermek istediğinize emin misiniz?</p>
+                    <div class="modal-actions">
+                        <button type="button" class="btn btn-primary" id="kargola-modal-evet">Evet</button>
+                        <button type="button" class="btn btn-outline" id="kargola-modal-iptal">İptal</button>
+                    </div>
+                </div>
+            </div>
+            <script>
+            (function() {
+                var btn = document.getElementById('kargola-onay-btn');
+                var modal = document.getElementById('kargola-onay-modal');
+                var form = document.getElementById('kargola-form');
+                if (!btn || !modal || !form) return;
+                btn.addEventListener('click', function() { modal.hidden = false; });
+                document.getElementById('kargola-modal-evet').addEventListener('click', function() { modal.hidden = true; form.submit(); });
+                document.getElementById('kargola-modal-iptal').addEventListener('click', function() { modal.hidden = true; });
+                modal.addEventListener('click', function(e) { if (e.target === modal) modal.hidden = true; });
+            })();
+            </script>
+            {% endif %}
+        </div>
+    </div>
+</div>
+{% endblock %}

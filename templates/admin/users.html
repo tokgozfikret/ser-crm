@@ -1,0 +1,151 @@
+{% extends "base.html" %}
+{% block title %}Kullanıcılar - Admin Paneli{% endblock %}
+{% block content %}
+<div class="container page">
+    <div class="page-header">
+        <h1>Kullanıcılar</h1>
+    </div>
+
+    <div class="card">
+        <table class="data-table">
+            <thead>
+                <tr>
+                    <th>ID</th>
+                    <th>Ad Soyad</th>
+                    <th>Kullanıcı adı</th>
+                    <th>Rol</th>
+                    <th>Telefon</th>
+                    <th>E-posta</th>
+                    <th>İşlem</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for u in users %}
+                <tr>
+                    <td>{{ u.id }}</td>
+                    <td>{{ (u.first_name or '') ~ ' ' ~ (u.last_name or '') }}</td>
+                    <td>{{ u.username }}</td>
+                    <td>{{ u.role }}</td>
+                    <td>{{ u.phone or '-' }}</td>
+                    <td>{{ u.email or '-' }}</td>
+                    <td class="actions">
+                        {% if u.id != current_user.id %}
+                        <form method="post" action="{{ url_for('admin.delete_user', user_id=u.id) }}" class="user-delete-form">
+                            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                            <button type="button" class="btn btn-sm btn-danger user-delete-btn" data-username="{{ u.username }}">Sil</button>
+                        </form>
+                        {% else %}
+                        <span class="text-muted">Bu sizsiniz</span>
+                        {% endif %}
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+
+    <div class="detail-grid" style="margin-top:2rem;">
+        <div class="detail-section">
+            <h3>Son giriş / çıkış logları (auth)</h3>
+            {% if auth_log_lines %}
+            <pre style="max-height: 260px; overflow: auto; background:#0b1120; color:#e5e7eb; padding:0.75rem 1rem; border-radius:8px; font-size:0.8rem;">{% for line in auth_log_lines %}{{ line }}{% endfor %}</pre>
+            {% else %}
+            <p class="empty">Log kaydı bulunamadı.</p>
+            {% endif %}
+        </div>
+        <div class="detail-section">
+            <h3>Sekreterlik logları</h3>
+            {% if secretary_log_lines %}
+            <pre style="max-height: 260px; overflow: auto; background:#020617; color:#e5e7eb; padding:0.75rem 1rem; border-radius:8px; font-size:0.8rem;">{% for line in secretary_log_lines %}{{ line }}{% endfor %}</pre>
+            {% else %}
+            <p class="empty">Log kaydı bulunamadı.</p>
+            {% endif %}
+        </div>
+        <div class="detail-section">
+            <h3>Teknik servis logları</h3>
+            {% if technical_log_lines %}
+            <pre style="max-height: 260px; overflow: auto; background:#020617; color:#e5e7eb; padding:0.75rem 1rem; border-radius:8px; font-size:0.8rem;">{% for line in technical_log_lines %}{{ line }}{% endfor %}</pre>
+            {% else %}
+            <p class="empty">Log kaydı bulunamadı.</p>
+            {% endif %}
+        </div>
+        <div class="detail-section">
+            <h3>Satış logları</h3>
+            {% if sales_log_lines %}
+            <pre style="max-height: 260px; overflow: auto; background:#020617; color:#e5e7eb; padding:0.75rem 1rem; border-radius:8px; font-size:0.8rem;">{% for line in sales_log_lines %}{{ line }}{% endfor %}</pre>
+            {% else %}
+            <p class="empty">Log kaydı bulunamadı.</p>
+            {% endif %}
+        </div>
+        <div class="detail-section">
+            <h3>Admin işlemleri logları</h3>
+            {% if admin_log_lines %}
+            <pre style="max-height: 260px; overflow: auto; background:#020617; color:#e5e7eb; padding:0.75rem 1rem; border-radius:8px; font-size:0.8rem;">{% for line in admin_log_lines %}{{ line }}{% endfor %}</pre>
+            {% else %}
+            <p class="empty">Log kaydı bulunamadı.</p>
+            {% endif %}
+        </div>
+    </div>
+</div>
+
+<div id="user-delete-modal" class="modal-overlay" role="dialog" aria-labelledby="user-delete-modal-title" aria-modal="true" hidden>
+    <div class="modal-content">
+        <p id="user-delete-modal-title" class="modal-message">
+            Bu kullanıcıyı silmek istediğinize emin misiniz?
+        </p>
+        <p class="text-muted" id="user-delete-modal-user" style="margin-top:-0.5rem; margin-bottom:1rem;"></p>
+        <div class="modal-actions">
+            <button type="button" class="btn btn-danger" id="user-delete-confirm">Evet, sil</button>
+            <button type="button" class="btn btn-outline" id="user-delete-cancel">İptal</button>
+        </div>
+    </div>
+</div>
+
+<script>
+(function() {
+    var modal = document.getElementById('user-delete-modal');
+    if (!modal) return;
+    var confirmBtn = document.getElementById('user-delete-confirm');
+    var cancelBtn = document.getElementById('user-delete-cancel');
+    var userInfo = document.getElementById('user-delete-modal-user');
+    var pendingForm = null;
+
+    document.querySelectorAll('.user-delete-btn').forEach(function(btn) {
+        btn.addEventListener('click', function() {
+            pendingForm = this.closest('form');
+            var username = this.getAttribute('data-username') || '';
+            if (userInfo) {
+                userInfo.textContent = username ? 'Kullanıcı: ' + username : '';
+            }
+            modal.hidden = false;
+        });
+    });
+
+    if (confirmBtn) {
+        confirmBtn.addEventListener('click', function() {
+            if (pendingForm) {
+                pendingForm.submit();
+            }
+            pendingForm = null;
+            modal.hidden = true;
+        });
+    }
+
+    if (cancelBtn) {
+        cancelBtn.addEventListener('click', function() {
+            pendingForm = null;
+            modal.hidden = true;
+        });
+    }
+
+    modal.addEventListener('click', function(e) {
+        if (e.target === modal) {
+            pendingForm = null;
+            modal.hidden = true;
+        }
+    });
+})();
+</script>
+
+{% endblock %}
+

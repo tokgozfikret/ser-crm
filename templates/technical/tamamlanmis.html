@@ -1,0 +1,103 @@
+{% extends "base.html" %}
+{% from 'includes/pagination.html' import render_pagination %}
+{% block title %}Firmaya Gönderilen Cihazlar - SER-CRM{% endblock %}
+{% block content %}
+<div class="container page">
+    <div class="page-header">
+        <h1>Teknik Servis Paneli</h1>
+    </div>
+    <div class="tabs">
+        <a href="{{ url_for('technical.index', tab='all', q=arama, page=1) }}" class="tab">Tüm Cihazlar</a>
+        <a href="{{ url_for('technical.index', tab='tamamlanmamis', q=arama, page=1) }}" class="tab">Tamamlanmamış Cihazlar</a>
+        <a href="{{ url_for('technical.index', tab='tamamlanmis', q=arama, page=1) }}" class="tab">Tamamlanmış Cihazlar</a>
+        <a href="{{ url_for('technical.index', tab='musteri_cihazlari', q=arama, page=1) }}" class="tab">Firmaya Göre Cihazlar</a>
+        <a href="{{ url_for('technical.kargolandi') }}" class="tab active">Firmaya Gönderilen</a>
+    </div>
+    <div class="card">
+        <h2>Firmaya kargolanmış cihazlar</h2>
+        <form method="get" class="search-form search-form-inline" id="kargolandi-filter-form">
+            <input type="text" name="q" value="{{ arama }}" placeholder="Firma, cihaz, telefon ara..." class="search-input" oninput="if(!this.value.trim())this.form.submit()">
+            <span class="search-form-date-group">
+                <label for="tarih_baslangic">Başlangıç</label>
+                <input type="date" id="tarih_baslangic" name="tarih_baslangic" value="{{ tarih_baslangic|default('') }}" class="search-form-date-input">
+            </span>
+            <span class="search-form-date-group">
+                <label for="tarih_bitis">Bitiş</label>
+                <input type="date" id="tarih_bitis" name="tarih_bitis" value="{{ tarih_bitis|default('') }}" class="search-form-date-input">
+            </span>
+            <input type="hidden" name="page" value="1">
+            <button type="submit" class="btn btn-primary">Filtrele</button>
+            {% if tarih_baslangic or tarih_bitis %}
+            <a href="{{ url_for('technical.kargolandi', q=arama) }}" class="btn btn-outline">Tarih filtrelerini temizle</a>
+            {% endif %}
+        </form>
+        <script>
+        (function(){
+            var f = document.getElementById('kargolandi-filter-form');
+            if (!f) return;
+            var start = document.getElementById('tarih_baslangic');
+            var end = document.getElementById('tarih_bitis');
+            function sync() {
+                if (start && end) {
+                    if (start.value) end.min = start.value; else end.removeAttribute('min');
+                    if (end.value) start.max = end.value; else start.removeAttribute('max');
+                }
+            }
+            function valid(e) {
+                if (!start || !end || !start.value || !end.value) return true;
+                sync();
+                if (start.value > end.value) {
+                    start.setCustomValidity('Başlangıç, bitişten sonra olamaz.');
+                    if (e) e.preventDefault();
+                    return false;
+                }
+                start.setCustomValidity('');
+                return true;
+            }
+            f.addEventListener('submit', valid);
+            if (start) start.addEventListener('change', sync);
+            if (end) end.addEventListener('change', sync);
+            sync();
+        })();
+        </script>
+        {% if pagination.items %}
+        <div class="table-wrap">
+            <table class="data-table">
+                <thead>
+                    <tr>
+                        <th>Firma</th>
+                        <th>Cihaz markası</th>
+                        <th>Model</th>
+                        <th>Seri no</th>
+                        <th>Firma arıza şikayeti</th>
+                        <th>Kargolama tarihi</th>
+                        <th>İşlem</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for c in pagination.items %}
+                    <tr>
+                        <td>
+                            {{ c.musteri_adi }}
+                            <br><small>{{ c.customer.lokasyon_proje if c.customer and c.customer.lokasyon_proje else 'Lokasyon / proje yok' }}</small>
+                        </td>
+                        <td>{{ (c.cihaz_marka or c.cihaz_bilgisi)[:40] }}{% if (c.cihaz_marka or c.cihaz_bilgisi)|length > 40 %}...{% endif %}</td>
+                        <td>{{ c.cihaz_model or '—' }}</td>
+                        <td>{{ c.seri_no or '—' }}</td>
+                        <td>{{ (c.aciklama or '—')[:80] }}{% if c.aciklama and c.aciklama|length > 80 %}...{% endif %}</td>
+                        <td>{{ (c.kargolandi_at or c.updated_at).strftime('%d.%m.%Y %H:%M') if (c.kargolandi_at or c.updated_at) else '—' }}</td>
+                        <td>
+                            <a href="{{ url_for('technical.kargolandi_detay', id=c.id) }}" class="btn btn-sm">Detay</a>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        {{ render_pagination(pagination, 'technical.kargolandi', info_text='kayıt', q=arama, tarih_baslangic=tarih_baslangic, tarih_bitis=tarih_bitis) }}
+        {% else %}
+        <p class="empty">{% if arama or tarih_baslangic or tarih_bitis %}Seçilen filtreye uygun sonuç bulunamadı.{% else %}Henüz tamamlanmış (kargolanmış) cihaz yok.{% endif %}</p>
+        {% endif %}
+    </div>
+</div>
+{% endblock %}

@@ -1,0 +1,28 @@
+{% macro render_pagination(pagination, endpoint, info_text='kayıt', tab=none, q=none, sort=none, order=none, musteri_adi=none, musteri_telefon=none, urun_grubu=none, marka=none, model=none, tarih_baslangic=none, tarih_bitis=none, musteri_ara=none, tkl_tarih_baslangic=none, tkl_tarih_bitis=none, tkl_q=none) %}
+{% if pagination.pages > 1 %}
+<nav class="pagination" aria-label="Sayfa navigasyonu">
+    <div class="pagination-nav">
+        {% if pagination.has_prev %}
+        <a href="{{ url_for_pagination(endpoint, pagination.prev_num, tab=tab, q=q, sort=sort, order=order, musteri_adi=musteri_adi, musteri_telefon=musteri_telefon, urun_grubu=urun_grubu, marka=marka, model=model, tarih_baslangic=tarih_baslangic, tarih_bitis=tarih_bitis, musteri_ara=musteri_ara, tkl_tarih_baslangic=tkl_tarih_baslangic, tkl_tarih_bitis=tkl_tarih_bitis, tkl_q=tkl_q) }}" class="btn btn-sm pagination-prev">« Önceki</a>
+        {% endif %}
+        <div class="pagination-pages">
+            {% for p in pagination.iter_pages(left_edge=1, left_current=2, right_current=2, right_edge=1) %}
+                {% if p %}
+                    {% if p == pagination.page %}
+                    <span class="pagination-page pagination-current" aria-current="page">{{ p }}</span>
+                    {% else %}
+                    <a href="{{ url_for_pagination(endpoint, p, tab=tab, q=q, sort=sort, order=order, musteri_adi=musteri_adi, musteri_telefon=musteri_telefon, urun_grubu=urun_grubu, marka=marka, model=model, tarih_baslangic=tarih_baslangic, tarih_bitis=tarih_bitis, musteri_ara=musteri_ara, tkl_tarih_baslangic=tkl_tarih_baslangic, tkl_tarih_bitis=tkl_tarih_bitis, tkl_q=tkl_q) }}" class="pagination-page">{{ p }}</a>
+                    {% endif %}
+                {% else %}
+                <span class="pagination-ellipsis">…</span>
+                {% endif %}
+            {% endfor %}
+        </div>
+        {% if pagination.has_next %}
+        <a href="{{ url_for_pagination(endpoint, pagination.next_num, tab=tab, q=q, sort=sort, order=order, musteri_adi=musteri_adi, musteri_telefon=musteri_telefon, urun_grubu=urun_grubu, marka=marka, model=model, tarih_baslangic=tarih_baslangic, tarih_bitis=tarih_bitis, musteri_ara=musteri_ara, tkl_tarih_baslangic=tkl_tarih_baslangic, tkl_tarih_bitis=tkl_tarih_bitis, tkl_q=tkl_q) }}" class="btn btn-sm pagination-next">Sonraki »</a>
+        {% endif %}
+    </div>
+    <span class="pagination-info">Sayfa {{ pagination.page }} / {{ pagination.pages }} (Toplam {{ pagination.total }} {{ info_text }})</span>
+</nav>
+{% endif %}
+{% endmacro %}

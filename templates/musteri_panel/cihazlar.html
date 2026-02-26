@@ -1,0 +1,45 @@
+{% extends "base.html" %}
+{% block title %}Cihazlarım - Müşteri Paneli{% endblock %}
+{% block content %}
+<div class="container page">
+    <div class="page-header">
+        <h1>Müşteri Paneli</h1>
+    </div>
+    <p class="text-muted" style="margin-bottom:1rem;">Hoş geldiniz, <strong>{{ musteri_adi }}</strong>. Cihazlarınızın güncel durumu:</p>
+    <div class="card">
+        <div class="table-wrap">
+            <table class="data-table">
+                <thead>
+                    <tr>
+                        <th>Cihaz</th>
+                        <th>Seri No</th>
+                        <th>Durum</th>
+                        <th>Tahmini Fiyat</th>
+                        <th>Giriş Tarihi</th>
+                        <th></th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for c in cihazlar %}
+                    <tr>
+                        <td>{{ c.cihaz_bilgisi or (c.cihaz_marka or '') ~ ' ' ~ (c.cihaz_model or '') }}</td>
+                        <td>{{ c.seri_no or '-' }}</td>
+                        <td>
+                            <span class="pill pill-{{ 'info' if c.durum == 'geldi' else 'warning' if c.durum in ('teknik_serviste', 'teknik_serviste_tamir', 'on_inceleme_sekreterlikte') else 'onay-bekliyor' if c.durum == 'musteri_onay_bekliyor' else 'success' if c.durum in ('arizalar_tamamlandi', 'musteri_onayladi', 'kargolandı') else 'danger' if c.durum == 'musteri_onaylamadi' else 'muted' }}">
+                                {{ c.DURUMLAR.get(c.durum, c.durum) }}
+                            </span>
+                            {% if c.durum == 'musteri_onay_bekliyor' %}<br><small class="text-muted">Onay veya red bekliyor</small>{% endif %}
+                        </td>
+                        <td>{% if c.on_inceleme_toplam_str %}{{ c.on_inceleme_toplam_str }}{% else %}–{% endif %}</td>
+                        <td>{{ c.created_at.strftime('%d.%m.%Y') if c.created_at else '-' }}</td>
+                        <td class="actions">
+                            <a href="{{ url_for('musteri_panel.cihaz_detay', cihaz_id=c.id) }}" class="btn btn-sm btn-primary">Detay</a>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+{% endblock %}

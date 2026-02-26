@@ -1,0 +1,61 @@
+{% extends "base.html" %}
+{% from 'includes/pagination.html' import render_pagination %}
+{% block title %}Firma Yönetimi - Admin{% endblock %}
+{% block content %}
+<div class="container page">
+    <div class="page-header">
+        <h1>Firma Yönetimi</h1>
+        <div class="header-actions">
+            <a href="{{ url_for('admin.index') }}" class="btn btn-outline">← Admin Paneli</a>
+        </div>
+    </div>
+
+    <form method="get" class="search-form" style="margin-bottom:1.5rem;">
+        <input type="text" name="q" value="{{ arama }}" placeholder="Firma adı, yetkili kişi, telefon, e-posta, adres ara..." class="search-input" oninput="if(!this.value.trim())this.form.submit()">
+        <input type="hidden" name="page" value="1">
+        <button type="submit" class="btn btn-primary">Ara</button>
+    </form>
+
+    <div class="card">
+        <h2>Firmalar</h2>
+        {% if pagination.items %}
+        <div class="table-wrap">
+            <table class="data-table">
+                <thead>
+                    <tr>
+                        <th>Firma</th>
+                        <th>Yetkili kişi</th>
+                        <th>Telefon</th>
+                        <th>E-posta</th>
+                        <th>Lokasyon / Proje</th>
+                        <th>Tamir cihazları</th>
+                        <th>Satış / kiralama</th>
+                        <th>İşlem</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for m in pagination.items %}
+                    <tr>
+                        <td>{{ m.ad }}</td>
+                        <td>{{ m.yetkili_kisi or '-' }}</td>
+                        <td>{{ m.telefon or '-' }}</td>
+                        <td>{{ m.email or '-' }}</td>
+                        <td>{{ m.lokasyon_proje or '-' }}</td>
+                        <td>{{ m.device_count }} cihaz</td>
+                        <td>{{ m.sale_count }} kayıt</td>
+                        <td class="actions">
+                            <a href="{{ url_for('admin.musteri_detay', id=m.id) }}" class="btn btn-sm btn-primary">Detay</a>
+                            <a href="{{ url_for('admin.musteri_duzenle', id=m.id) }}" class="btn btn-sm">Düzenle</a>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        <div style="margin-top:1rem;">{{ render_pagination(pagination, 'admin.musteriler', info_text='firma', q=arama) }}</div>
+        {% else %}
+        <p class="empty">{% if arama %}Aramanıza uygun firma bulunamadı.{% else %}Henüz firma kaydı yok. Sekreterlik veya satış panelinden cihaz/satış girildikçe firmalar otomatik oluşur.{% endif %}</p>
+        {% endif %}
+    </div>
+</div>
+{% endblock %}

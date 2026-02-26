@@ -1,0 +1,51 @@
+{% extends "base.html" %}
+{% block title %}Firma düzenle: {{ musteri.ad }} - Admin{% endblock %}
+{% block content %}
+<div class="container page">
+    <div class="page-header">
+        <h1>Firma bilgilerini düzenle</h1>
+        <div class="header-actions">
+            <a href="{{ url_for('admin.musteri_detay', id=musteri.id) }}" class="btn btn-outline">← Detaya dön</a>
+            <a href="{{ url_for('admin.musteriler') }}" class="btn btn-outline">← Firma listesine dön</a>
+        </div>
+    </div>
+    <div class="card">
+        <form method="post" action="{{ url_for('admin.musteri_duzenle', id=musteri.id) }}" class="form-modern">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+            <h3 class="form-section-title">Firma iletişim bilgileri</h3>
+            <div class="form-group">
+                <label for="ad">Firma adı *</label>
+                <input type="text" id="ad" name="ad" required value="{{ musteri.ad }}" placeholder="Ad Soyad veya Firma">
+            </div>
+            <div class="form-group">
+                <label for="yetkili_kisi">Yetkili kişi</label>
+                <input type="text" id="yetkili_kisi" name="yetkili_kisi" value="{{ musteri.yetkili_kisi or '' }}" placeholder="Yetkili / iletişim kişisi adı">
+            </div>
+            <div class="form-group">
+                <label for="telefon">Telefon</label>
+                <input type="text" id="telefon" name="telefon" value="{{ musteri.telefon or '' }}" placeholder="05xx xxx xx xx">
+            </div>
+            <div class="form-group">
+                <label for="email">E-posta</label>
+                <input type="email" id="email" name="email" value="{{ musteri.email or '' }}" placeholder="ornek@email.com">
+            </div>
+            <div class="form-group">
+                <label for="adres">Adres</label>
+                <textarea id="adres" name="adres" rows="4" placeholder="Açık adres bilgisi...">{{ musteri.adres or '' }}</textarea>
+            </div>
+            <div class="form-group">
+                <label for="lokasyon_proje">Lokasyon / Proje</label>
+                <input type="text" id="lokasyon_proje" name="lokasyon_proje" value="{{ musteri.lokasyon_proje or '' }}" placeholder="Örn: Ankara Merkez Projesi">
+            </div>
+            <div class="form-group">
+                <label for="notlar">Notlar</label>
+                <textarea id="notlar" name="notlar" rows="3" placeholder="Firma hakkında notlar...">{{ musteri.notlar or '' }}</textarea>
+            </div>
+            <div class="form-actions">
+                <button type="submit" class="btn btn-primary">Kaydet</button>
+                <a href="{{ url_for('admin.musteri_detay', id=musteri.id) }}" class="btn btn-outline">İptal</a>
+            </div>
+        </form>
+    </div>
+</div>
+{% endblock %}

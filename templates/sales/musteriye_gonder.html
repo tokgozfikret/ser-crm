@@ -1,0 +1,866 @@
+{% extends "base.html" %}
+{% block title %}Firmaya gönder - SER-CRM{% endblock %}
+{% block content %}
+<div class="container page">
+    <div class="page-header">
+        <h1>Firmaya ürün gönder</h1>
+        <a href="{{ url_for('sales.index') }}" class="btn btn-outline">← Satış paneline dön</a>
+    </div>
+    <div class="card">
+        {% if not stoklar %}
+        <p class="empty">Stokta gönderilebilecek ürün yok. Önce stok ekleyin ve miktar girin.</p>
+        {% else %}
+        <form method="post" class="form-modern" id="musteriye-gonder-form">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+
+            <h2 class="form-section-title">Firma bilgileri</h2>
+            <div class="form-group">
+                <label for="customer-select">Firma seç (varsa)</label>
+                <select id="customer-select" class="customer-select">
+                    <option value="">— Firma seçin —</option>
+                    {% if customers %}
+                    {% for c in customers %}
+                    <option value="{{ c.id }}"
+                            data-ad="{{ c.ad }}"
+                            data-telefon="{{ c.telefon or '' }}"
+                            data-adres="{{ c.adres or '' }}"
+                            data-email="{{ c.email or '' }}"
+                            data-lokasyon="{{ c.lokasyon_proje or '' }}">
+                        {{ c.ad }}{% if c.telefon %} ({{ c.telefon }}){% endif %}
+                    </option>
+                    {% endfor %}
+                    {% endif %}
+                    <option value="__yeni__">+ Yeni firma ekle</option>
+                </select>
+                <input type="hidden" name="customer_id" id="customer_id">
+            </div>
+            <div class="form-grid-2">
+                <div class="form-group">
+                    <label for="musteri_adi">Firma adı *</label>
+                    <input type="text" id="musteri_adi" name="musteri_adi" required placeholder="Örn: Koza">
+                </div>
+                <div class="form-group">
+                    <label for="musteri_telefon">Telefon</label>
+                    <input type="text" id="musteri_telefon" name="musteri_telefon" placeholder="Örn: 0555 123 45 67">
+                </div>
+            </div>
+            <div class="form-group">
+                <label for="musteri_adres">Adres</label>
+                <input type="text" id="musteri_adres" name="musteri_adres" placeholder="Teslimat adresi">
+            </div>
+            <div class="form-group">
+                <label for="musteri_email">E-posta</label>
+                <input type="email" id="musteri_email" name="musteri_email" placeholder="ornek@email.com">
+            </div>
+            <div class="form-group">
+                <label for="musteri_lokasyon">Lokasyon / Proje</label>
+                <input type="text" id="musteri_lokasyon" name="musteri_lokasyon" placeholder="Örn: Ankara Merkez Projesi">
+            </div>
+            <div class="form-group">
+                <label for="aciklama">Açıklama</label>
+                <textarea id="aciklama" name="aciklama" rows="2" placeholder="İsteğe bağlı not"></textarea>
+            </div>
+            <div class="form-group">
+                <label>İşlem türü</label>
+                <div class="islem-turu-toggle" id="islem-turu-toggle">
+                    <label class="toggle-pill">
+                        <input type="radio" name="islem_turu" value="satis" checked>
+                        <span>Satış</span>
+                    </label>
+                    <label class="toggle-pill">
+                        <input type="radio" name="islem_turu" value="kiralama">
+                        <span>Kiralama</span>
+                    </label>
+                </div>
+            </div>
+
+            <h2 class="form-section-title">Satılacak ürünler</h2>
+            <p class="form-hint">Ürün seçtiğinizde marka, model ve stok durumu otomatik görünür. Gönderilecek miktarı girin. Seri no girmek istediğiniz satırda ilgili kutucuğu işaretleyin.</p>
+            <div class="table-wrap">
+                <table class="data-table" id="urun-tablosu">
+                    <thead>
+                        <tr>
+                            <th>Ürün *</th>
+                            <th>Marka</th>
+                            <th>Model</th>
+                            <th>Ürün grubu</th>
+                            <th>Stok durumu</th>
+                            <th>Gönderilecek miktar *</th>
+                            <th>Birim fiyat</th>
+                            <th>Toplam fiyat</th>
+                            <th class="seri-column">Seri numaraları</th>
+                            <th>İşlem</th>
+                        </tr>
+                    </thead>
+                    <tbody id="urun-listesi">
+                        <tr class="urun-row">
+                            <td>
+                                <select name="inventory_id" class="urun-select" required>
+                                    <option value="">— Ürün seçin —</option>
+                                    {% for inv in stoklar %}
+                                    <option value="{{ inv.id }}" data-stok-no="{{ inv.stok_numarasi or '' }}" data-marka="{{ inv.marka or '' }}" data-model="{{ inv.model or '' }}" data-miktar="{{ inv.miktar }}" data-birim="{{ inv.birim }}">{{ inv.urun_adi }}</option>
+                                    {% endfor %}
+                                </select>
+                            </td>
+                            <td>
+                                <select class="marka-select" data-placeholder="— Marka —">
+                                    <option value="">— Marka —</option>
+                                </select>
+                            </td>
+                            <td>
+                                <select class="model-select" data-placeholder="— Model —">
+                                    <option value="">— Model —</option>
+                                </select>
+                            </td>
+                            <td class="urun-grup">—</td>
+                            <td class="urun-stok">—</td>
+                            <td>
+                                <input type="number" name="miktar" min="1" required placeholder="0" class="miktar-input">
+                            </td>
+                            <td>
+                                <input type="number" name="birim_fiyat" min="0" step="0.01" placeholder="0.00" class="birim-fiyat-input">
+                            </td>
+                            <td>
+                                <input type="text" name="toplam_fiyat" class="toplam-fiyat-input" placeholder="0.00" readonly>
+                            </td>
+                            <td class="seri-column">
+                                <label class="checkbox-label seri-cb-label">
+                                    <input type="checkbox" class="seri-girilsin-row-cb">
+                                    <span>Seri No Gir</span>
+                                </label>
+                                <div class="seri-textarea-wrap">
+                                    <input type="hidden" name="seri_numaralari" class="seri-numaralari-hidden" value="">
+                                    <div class="seri-inputs-container"></div>
+                                </div>
+                            </td>
+                            <td class="actions">
+                                <button type="button" class="btn btn-sm btn-row-remove" title="Bu satırı kaldır" style="color:var(--error);border-color:var(--error);">Sil</button>
+                            </td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+            <div class="urun-actions">
+                <button type="button" id="add-urun-row" class="btn btn-outline">+ Ürün satırı ekle</button>
+                <div class="form-actions">
+                    <button type="submit" class="btn btn-primary">Gönder ve stoktan düş</button>
+                    <a href="{{ url_for('sales.index') }}" class="btn btn-outline">İptal</a>
+                </div>
+            </div>
+        </form>
+        <div id="musteriye-gonder-onay-modal" class="modal-overlay" role="dialog" aria-labelledby="musteriye-gonder-modal-title" aria-modal="true" hidden>
+            <div class="modal-content">
+                <p id="musteriye-gonder-modal-title" class="modal-message">Bu işlemi geri alamazsınız. Seçili ürünleri firmaya gönderip, stoktan düşmek istediğinize emin misiniz?</p>
+                <div class="modal-actions">
+                    <button type="button" class="btn btn-primary" id="musteriye-gonder-modal-evet">Evet</button>
+                    <button type="button" class="btn btn-outline" id="musteriye-gonder-modal-iptal">İptal</button>
+                </div>
+            </div>
+        </div>
+        <!-- Choices.js: arama destekli select için -->
+        <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/choices.js/public/assets/styles/choices.min.css">
+        <script src="https://cdn.jsdelivr.net/npm/choices.js/public/assets/scripts/choices.min.js"></script>
+        <script>
+(function () {
+    var urunler = {{ stoklar_json | safe }};
+    var urunMap = {};
+    urunler.forEach(function (u) {
+        urunMap[u.id] = u;
+    });
+
+    var customers = {{ customers_json | safe }} || [];
+    var customerMap = {};
+    customers.forEach(function (c) {
+        customerMap[String(c.id)] = c;
+    });
+
+    var markaList = [];
+    var modelList = [];
+    var modelByMarka = {};
+    (function () {
+        var mSet = {}, modSet = {};
+        urunler.forEach(function (u) {
+            if (u.marka) { mSet[u.marka] = true; }
+            if (u.model) { modSet[u.model] = true; }
+        });
+        markaList = Object.keys(mSet).sort(function (a, b) { return a.localeCompare(b); });
+        modelList = Object.keys(modSet).sort(function (a, b) { return a.localeCompare(b); });
+        modelByMarka = {};
+        urunler.forEach(function (u) {
+            if (!u.marka) return;
+            if (!modelByMarka[u.marka]) modelByMarka[u.marka] = {};
+            if (u.model) modelByMarka[u.marka][u.model] = true;
+        });
+    })();
+
+    function getModelsForMarka(marka) {
+        if (!marka || !modelByMarka[marka]) return modelList.slice();
+        return Object.keys(modelByMarka[marka]).sort(function (a, b) { return a.localeCompare(b); });
+    }
+    function getUrunlerForMarkaModel(marka, model) {
+        return urunler.filter(function (u) {
+            if (marka && u.marka !== marka) return false;
+            if (model && u.model !== model) return false;
+            return true;
+        });
+    }
+
+    /** Marka/model seçimine göre stok durumu hücresini günceller (ürün seçili değilken). */
+    function updateStokDurumuFromMarkaModel(row) {
+        var stokCell = row.querySelector('.urun-stok');
+        if (!stokCell) return;
+        var sel = row.querySelector('.urun-select');
+        var val = sel ? (sel._choicesInstance ? sel._choicesInstance.getValue(true) : sel.value) : '';
+        if (Array.isArray(val)) val = val[0];
+        if (typeof val === 'string' && val && val.trim() && urunMap[val.trim()]) {
+            return;
+        }
+        var mm = getMarkaModelFromRow(row);
+        if (!mm.marka && !mm.model) {
+            stokCell.textContent = '—';
+            validateMiktarInput(row);
+            return;
+        }
+        // Model seçilmediyse stok detayı göstermeyelim.
+        if (!mm.model) {
+            stokCell.textContent = 'Stok durumunu görmek için model giriniz';
+            validateMiktarInput(row);
+            return;
+        }
+        var list = getUrunlerForMarkaModel(mm.marka || '', mm.model || '');
+        if (list.length === 0) {
+            stokCell.textContent = 'Bu seçimde ürün yok';
+            validateMiktarInput(row);
+            return;
+        }
+        
+        // Buraya gelindiyse hem marka hem model (en azından model) seçili; listeye göre stok göster.
+        if (list.length === 1) {
+            stokCell.textContent = list[0].miktar + ' ' + list[0].birim;
+            validateMiktarInput(row);
+            return;
+        }
+        // Aynı modelde birden fazla satır varsa, modele göre grupla
+        var modelGroups = {};
+        list.forEach(function (u) {
+            var key = (u.model || '') + '|' + (u.birim || '');
+            if (!modelGroups[key]) {
+                modelGroups[key] = { model: u.model || '', birim: u.birim || '', toplam: 0 };
+            }
+            modelGroups[key].toplam += u.miktar || 0;
+        });
+        var parts = Object.keys(modelGroups).map(function (key) {
+            var g = modelGroups[key];
+            return (g.model || 'Model belirtilmemiş') + ': ' + g.toplam + ' ' + g.birim;
+        });
+        stokCell.innerHTML = parts.map(function (p) { return '<span class="stok-durumu-satir">' + escapeHtml(p) + '</span>'; }).join('<br>');
+        validateMiktarInput(row);
+    }
+    function escapeHtml(s) {
+        var div = document.createElement('div');
+        div.textContent = s;
+        return div.innerHTML;
+    }
+
+    function setSelectOptions(selectEl, items) {
+        if (!selectEl) return;
+        var placeholder = selectEl.getAttribute('data-placeholder') || '—';
+        selectEl.innerHTML = '<option value="">' + placeholder + '</option>';
+        items.forEach(function (item) {
+            var opt = document.createElement('option');
+            opt.value = item.value;
+            opt.textContent = item.label;
+            selectEl.appendChild(opt);
+        });
+    }
+    function fillMarkaOptions(selectEl) {
+        setSelectOptions(selectEl, markaList.map(function (m) { return { value: m, label: m }; }));
+    }
+    function fillModelOptions(selectEl, marka) {
+        var list = marka ? getModelsForMarka(marka) : modelList;
+        setSelectOptions(selectEl, list.map(function (m) { return { value: m, label: m }; }));
+    }
+
+    function updateProductChoices(row, marka, model) {
+        var filtered = getUrunlerForMarkaModel(marka || '', model || '');
+        var choices = [{ value: '', label: '— Ürün seçin —' }].concat(filtered.map(function (u) { return { value: String(u.id), label: u.ad }; }));
+        var sel = row.querySelector('.urun-select');
+        if (sel._choicesInstance) {
+            sel._choicesInstance.setChoices(choices, 'value', 'label', true);
+            sel._choicesInstance.setChoiceByValue('');
+        }
+    }
+
+    function updateRow(row) {
+        var sel = row.querySelector('.urun-select');
+        var grupCell = row.querySelector('.urun-grup');
+        var markaSel = row.querySelector('.marka-select');
+        var modelSel = row.querySelector('.model-select');
+        var stokCell = row.querySelector('.urun-stok');
+        var val = sel ? (sel._choicesInstance ? sel._choicesInstance.getValue(true) : sel.value) : '';
+        if (Array.isArray(val)) val = val[0];
+        if (typeof val === 'string' && val) val = val.trim();
+        if (!val || !urunMap[val]) {
+            if (grupCell) grupCell.textContent = '—';
+            updateStokDurumuFromMarkaModel(row);
+            return;
+        }
+        var u = urunMap[val];
+        if (stokCell) stokCell.textContent = u.miktar + ' ' + u.birim;
+        if (grupCell) grupCell.textContent = u.urun_grubu || '—';
+        if (markaSel && markaSel._choicesInstance && u.marka) {
+            markaSel._choicesInstance.setChoiceByValue(u.marka);
+        }
+        if (modelSel && modelSel._choicesInstance) {
+            var modelOpts = [{ value: '', label: (modelSel.getAttribute('data-placeholder') || '— Model —') }].concat(
+                getModelsForMarka(u.marka || '').map(function (m) { return { value: m, label: m }; })
+            );
+            modelSel._choicesInstance.setChoices(modelOpts, 'value', 'label', true);
+            if (u.model) modelSel._choicesInstance.setChoiceByValue(u.model);
+        }
+        validateMiktarInput(row);
+    }
+
+    /** Stok durumu hücresinden maksimum miktarı parse eder. */
+    function getMaxMiktarFromStokCell(row) {
+        var stokCell = row.querySelector('.urun-stok');
+        if (!stokCell) return null;
+        
+        // HTML içeriğini text olarak al (innerHTML'den textContent'e çevir)
+        var htmlContent = stokCell.innerHTML || '';
+        var text = stokCell.textContent || stokCell.innerText || '';
+        if (!text || text === '—' || text === 'Bu seçimde ürün yok') return null;
+        
+        // Tek ürün durumu: "5 adet" veya sadece sayı
+        var singleMatch = text.match(/^(\d+(?:\.\d+)?)\s+/);
+        if (singleMatch) {
+            return parseFloat(singleMatch[1]);
+        }
+        
+        // Birden fazla ürün durumu: "Model A: 10 adet\nModel B: 5 adet" veya HTML formatında
+        // HTML içeriğinden satırları ayır (<br> veya \n ile)
+        var lines = [];
+        if (htmlContent.indexOf('<br') >= 0 || htmlContent.indexOf('<BR') >= 0) {
+            // HTML formatında, <br> ile ayrılmış
+            var tempDiv = document.createElement('div');
+            tempDiv.innerHTML = htmlContent;
+            var spans = tempDiv.querySelectorAll('span.stok-durumu-satir');
+            if (spans.length > 0) {
+                spans.forEach(function (span) {
+                    lines.push(span.textContent || span.innerText || '');
+                });
+            } else {
+                lines = tempDiv.textContent.split(/\n/);
+            }
+        } else {
+            lines = text.split(/\n/);
+        }
+        
+        var totalMiktar = 0;
+        lines.forEach(function (line) {
+            line = line.trim();
+            if (!line) return;
+            // "Model: 10 adet" veya "10 adet" formatını parse et
+            // Önce ":" sonrasını al, sonra sayıyı bul
+            var colonIndex = line.indexOf(':');
+            var searchText = colonIndex >= 0 ? line.substring(colonIndex + 1) : line;
+            var match = searchText.match(/(\d+(?:\.\d+)?)\s+/);
+            if (match) {
+                var miktar = parseFloat(match[1]);
+                totalMiktar += miktar;
+            }
+        });
+        
+        // Toplam miktarı döndür (kullanıcı tüm stoktan gönderebilir)
+        return totalMiktar > 0 ? totalMiktar : null;
+    }
+
+    /** Miktar input'una stok kontrolü ve validation ekler. */
+    function validateMiktarInput(row) {
+        var miktarInput = row.querySelector('.miktar-input');
+        if (!miktarInput) return;
+        var birimFiyatInput = row.querySelector('.birim-fiyat-input');
+        
+        var maxMiktar = getMaxMiktarFromStokCell(row);
+        if (maxMiktar === null) {
+            miktarInput.removeAttribute('max');
+            miktarInput.setCustomValidity('');
+            if (birimFiyatInput) birimFiyatInput.disabled = false;
+            return;
+        }
+        
+        miktarInput.setAttribute('max', maxMiktar);
+        // Her seferinde güncel max'ı input üzerinde sakla (stok değişebilir).
+        miktarInput._stokMaxMiktar = maxMiktar;
+        
+        function checkMiktar() {
+            var currentMax = typeof miktarInput._stokMaxMiktar === 'number' ? miktarInput._stokMaxMiktar : maxMiktar;
+            var value = parseFloat(String(miktarInput.value || '').replace(',', '.')) || 0;
+            var invalid = value > currentMax;
+            if (invalid) {
+                miktarInput.setCustomValidity('Stok sayısından fazla ürün gönderemezsiniz');
+                // Tarayıcının native tooltip/stilini göster (required mesajıyla aynı stil).
+                miktarInput.reportValidity();
+            } else {
+                miktarInput.setCustomValidity('');
+            }
+            // Stoktan fazla ise birim fiyat girilemesin.
+            if (birimFiyatInput) {
+                birimFiyatInput.disabled = invalid;
+            }
+        }
+        
+        if (!miktarInput._miktarValidated) {
+            miktarInput._miktarValidated = true;
+            miktarInput.addEventListener('input', checkMiktar);
+            miktarInput.addEventListener('change', checkMiktar);
+            miktarInput.addEventListener('blur', checkMiktar);
+        }
+        
+        // Mevcut değeri kontrol et
+        checkMiktar();
+    }
+
+    function updateTotal(row) {
+        var qtyInput = row.querySelector('.miktar-input');
+        var unitInput = row.querySelector('.birim-fiyat-input');
+        var totalInput = row.querySelector('.toplam-fiyat-input');
+        if (!qtyInput || !unitInput || !totalInput) return;
+        var qty = parseFloat(qtyInput.value.replace(',', '.')) || 0;
+        var unit = parseFloat(unitInput.value.replace(',', '.')) || 0;
+        var total = qty * unit;
+        totalInput.value = total ? total.toFixed(2) : '';
+    }
+
+    function getMarkaModelFromRow(row) {
+        var markaSel = row.querySelector('.marka-select');
+        var modelSel = row.querySelector('.model-select');
+        var marka = (markaSel && markaSel._choicesInstance) ? (markaSel._choicesInstance.getValue(true) || '') : (markaSel ? markaSel.value : '');
+        var model = (modelSel && modelSel._choicesInstance) ? (modelSel._choicesInstance.getValue(true) || '') : (modelSel ? modelSel.value : '');
+        if (Array.isArray(marka)) marka = marka[0] || '';
+        if (Array.isArray(model)) model = model[0] || '';
+        return { marka: marka, model: model };
+    }
+
+    function onMarkaChange(row) {
+        var mm = getMarkaModelFromRow(row);
+        var modelSel = row.querySelector('.model-select');
+        if (modelSel && modelSel._choicesInstance) {
+            var modelOpts = [{ value: '', label: (modelSel.getAttribute('data-placeholder') || '— Model —') }].concat(
+                getModelsForMarka(mm.marka).map(function (m) { return { value: m, label: m }; })
+            );
+            modelSel._choicesInstance.setChoices(modelOpts, 'value', 'label', true);
+            modelSel._choicesInstance.setChoiceByValue('');
+        }
+        updateProductChoices(row, mm.marka, '');
+        updateStokDurumuFromMarkaModel(row);
+    }
+
+    function onModelChange(row) {
+        var mm = getMarkaModelFromRow(row);
+        updateProductChoices(row, mm.marka, mm.model);
+        
+        // Model seçildiğinde, eğer ürün seçili değilse marka ve ürünü otomatik doldur
+        var sel = row.querySelector('.urun-select');
+        var urunVal = sel ? (sel._choicesInstance ? sel._choicesInstance.getValue(true) : sel.value) : '';
+        if (Array.isArray(urunVal)) urunVal = urunVal[0];
+        if (typeof urunVal === 'string') urunVal = urunVal.trim();
+        
+        if (!urunVal && mm.model) {
+            var matchingUrunler = getUrunlerForMarkaModel(mm.marka || '', mm.model);
+            if (matchingUrunler.length > 0) {
+                var firstUrun = matchingUrunler[0];
+                // Marka'yı otomatik doldur
+                var markaSel = row.querySelector('.marka-select');
+                if (markaSel && markaSel._choicesInstance && firstUrun.marka) {
+                    markaSel._choicesInstance.setChoiceByValue(firstUrun.marka);
+                }
+                // Ürünü otomatik seç (eğer tek ürün varsa veya ilk ürünü seç)
+                if (sel && sel._choicesInstance) {
+                    sel._choicesInstance.setChoiceByValue(String(firstUrun.id));
+                    // Ürün seçildikten sonra stok durumunu güncelle (Choices.js programatik değişiklikte change event tetiklenmeyebilir)
+                    updateRow(row);
+                    return;
+                }
+            }
+        }
+        
+        // Eğer ürün seçilmediyse, marka/model'e göre stok durumunu göster
+        updateStokDurumuFromMarkaModel(row);
+    }
+
+    function bindRow(row) {
+        var sel = row.querySelector('.urun-select');
+        if (sel && !sel._bound) {
+            sel._bound = true;
+            sel.addEventListener('change', function () { updateRow(row); });
+        }
+        var markaSel = row.querySelector('.marka-select');
+        if (markaSel && !markaSel._bound) {
+            markaSel._bound = true;
+            markaSel.addEventListener('change', function () { onMarkaChange(row); });
+        }
+        var modelSel = row.querySelector('.model-select');
+        if (modelSel && !modelSel._bound) {
+            modelSel._bound = true;
+            modelSel.addEventListener('change', function () { onModelChange(row); });
+        }
+        var qtyInput = row.querySelector('.miktar-input');
+        var unitInput = row.querySelector('.birim-fiyat-input');
+        if (qtyInput && !qtyInput._totalBound) {
+            qtyInput._totalBound = true;
+            qtyInput.addEventListener('input', function () { updateTotal(row); });
+            qtyInput.addEventListener('change', function () { updateTotal(row); });
+        }
+        if (unitInput && !unitInput._totalBound) {
+            unitInput._totalBound = true;
+            unitInput.addEventListener('input', function () { updateTotal(row); });
+            unitInput.addEventListener('change', function () { updateTotal(row); });
+        }
+        updateRow(row);
+        updateTotal(row);
+        validateMiktarInput(row);
+    }
+
+    var MAX_SERI = 100;
+
+    function syncSeriHidden(row, changedInput) {
+        var wrap = row.querySelector('.seri-textarea-wrap');
+        if (!wrap) return;
+        var hidden = wrap.querySelector('.seri-numaralari-hidden');
+        var container = wrap.querySelector('.seri-inputs-container');
+        if (!hidden || !container) return;
+        var inputs = container.querySelectorAll('input.seri-line-input');
+        var vals = [];
+        var valueMap = {}; // v -> { count, inputs: [] }
+        for (var i = 0; i < inputs.length; i++) {
+            var v = (inputs[i].value || '').trim();
+            if (v) {
+                vals.push(v);
+                if (!valueMap[v]) valueMap[v] = { count: 0, inputs: [] };
+                valueMap[v].count++;
+                valueMap[v].inputs.push(inputs[i]);
+            } else {
+                // Boş bırakılan satırların hatası olmasın.
+                if (typeof inputs[i].setCustomValidity === 'function') {
+                    inputs[i].setCustomValidity('');
+                }
+            }
+        }
+        hidden.value = vals.join('\n');
+
+        // Önce tüm dolu input'lardaki özel hatayı temizle.
+        Object.keys(valueMap).forEach(function (val) {
+            valueMap[val].inputs.forEach(function (inp) {
+                if (typeof inp.setCustomValidity === 'function') {
+                    inp.setCustomValidity('');
+                }
+            });
+        });
+
+        // Aynı satırda seri numaraları birbirinden farklı olmalı.
+        var invalidTarget = null;
+        Object.keys(valueMap).forEach(function (val) {
+            var group = valueMap[val];
+            if (group.count > 1) {
+                // Son girilen (changedInput) aynı değerde ise onu hatalı yap,
+                // değilse o değerdeki son input'u hatalı yap.
+                var target = null;
+                if (changedInput && group.inputs.indexOf(changedInput) !== -1) {
+                    target = changedInput;
+                } else {
+                    target = group.inputs[group.inputs.length - 1];
+                }
+                if (target && typeof target.setCustomValidity === 'function') {
+                    target.setCustomValidity('Bu satırda seri numaraları birbirinden farklı olmalıdır');
+                    invalidTarget = target;
+                }
+            }
+        });
+
+        // Native uyarıyı sadece son girilen (ve hatalı olan) input üzerinde göster.
+        if (invalidTarget && typeof invalidTarget.reportValidity === 'function') {
+            invalidTarget.reportValidity();
+        }
+    }
+
+    function buildSeriInputs(row) {
+        var wrap = row.querySelector('.seri-textarea-wrap');
+        var miktarInput = row.querySelector('.miktar-input');
+        var cb = row.querySelector('.seri-girilsin-row-cb');
+        if (!wrap || !miktarInput || !cb || !cb.checked) return;
+        var n = parseInt(miktarInput.value, 10) || 0;
+        if (n < 1) n = 0;
+        if (n > MAX_SERI) n = MAX_SERI;
+        var container = wrap.querySelector('.seri-inputs-container');
+        var hidden = wrap.querySelector('.seri-numaralari-hidden');
+        if (!container || !hidden) return;
+        container.innerHTML = '';
+        hidden.value = '';
+        for (var i = 1; i <= n; i++) {
+            var label = document.createElement('label');
+            label.className = 'seri-line-label';
+            label.textContent = 'Seri no ' + i + ':';
+            var input = document.createElement('input');
+            input.type = 'text';
+            input.className = 'seri-line-input';
+            input.placeholder = 'Seri no ' + i;
+            input.dataset.index = i;
+            (function (r, inp) {
+                inp.addEventListener('input', function (e) { syncSeriHidden(r, e.target); });
+            })(row, input);
+            container.appendChild(label);
+            container.appendChild(input);
+        }
+    }
+
+    function bindSeriCheckbox(row) {
+        var td = row.querySelector('td.seri-column');
+        var cb = row.querySelector('.seri-girilsin-row-cb');
+        var miktarInput = row.querySelector('.miktar-input');
+        if (!td || !cb || cb._seriBound) return;
+        cb._seriBound = true;
+        function toggle() {
+            if (cb.checked) {
+                td.classList.add('show-textarea');
+                buildSeriInputs(row);
+            } else {
+                td.classList.remove('show-textarea');
+                var container = td.querySelector('.seri-inputs-container');
+                if (container) container.innerHTML = '';
+                var hidden = td.querySelector('.seri-numaralari-hidden');
+                if (hidden) hidden.value = '';
+            }
+        }
+        cb.addEventListener('change', toggle);
+        if (miktarInput && !miktarInput._seriBound) {
+            miktarInput._seriBound = true;
+            miktarInput.addEventListener('input', function () {
+                if (cb.checked) buildSeriInputs(row);
+            });
+            miktarInput.addEventListener('change', function () {
+                if (cb.checked) buildSeriInputs(row);
+            });
+        }
+        toggle();
+    }
+
+    function initChoicesForRow(row) {
+        if (!window.Choices) return;
+        var urunSel = row.querySelector('.urun-select');
+        var markaSel = row.querySelector('.marka-select');
+        var modelSel = row.querySelector('.model-select');
+        if (urunSel && !urunSel._choicesInstance) {
+            urunSel._choicesInstance = new Choices(urunSel, {
+                searchEnabled: true,
+                itemSelectText: '',
+                shouldSort: false,
+                position: 'bottom',
+                placeholder: true,
+                placeholderValue: '— Ürün seçin —',
+                searchPlaceholderValue: 'Ürün ara...',
+                noResultsText: 'Sonuç bulunamadı',
+                noChoicesText: 'Gösterilebilecek ürün yok'
+            });
+        }
+        if (markaSel && !markaSel._choicesInstance) {
+            markaSel._choicesInstance = new Choices(markaSel, {
+                searchEnabled: true,
+                itemSelectText: '',
+                shouldSort: false,
+                position: 'bottom',
+                placeholder: true,
+                placeholderValue: '— Marka —',
+                searchPlaceholderValue: 'Marka ara...',
+                noResultsText: 'Sonuç bulunamadı',
+                noChoicesText: 'Gösterilebilecek marka yok'
+            });
+        }
+        if (modelSel && !modelSel._choicesInstance) {
+            modelSel._choicesInstance = new Choices(modelSel, {
+                searchEnabled: true,
+                itemSelectText: '',
+                shouldSort: false,
+                position: 'bottom',
+                placeholder: true,
+                placeholderValue: '— Model —',
+                searchPlaceholderValue: 'Model ara...',
+                noResultsText: 'Sonuç bulunamadı',
+                noChoicesText: 'Gösterilebilecek model yok'
+            });
+        }
+    }
+
+    document.addEventListener('DOMContentLoaded', function () {
+        var container = document.getElementById('urun-listesi');
+        var addBtn = document.getElementById('add-urun-row');
+        if (!container || !addBtn) return;
+
+        var firstRow = container.querySelector('.urun-row');
+        if (!firstRow) return;
+        fillMarkaOptions(firstRow.querySelector('.marka-select'));
+        fillModelOptions(firstRow.querySelector('.model-select'), null);
+        var templateRowHTML = firstRow.outerHTML;
+
+        initChoicesForRow(firstRow);
+        bindRow(firstRow);
+        bindSeriCheckbox(firstRow);
+
+        addBtn.addEventListener('click', function () {
+            var tempDiv = document.createElement('div');
+            tempDiv.innerHTML = '<table><tbody>' + templateRowHTML + '</tbody></table>';
+            var newRow = tempDiv.querySelector('tr');
+            if (!newRow) return;
+            fillMarkaOptions(newRow.querySelector('.marka-select'));
+            fillModelOptions(newRow.querySelector('.model-select'), null);
+            var newUrunSel = newRow.querySelector('.urun-select');
+            if (newUrunSel) newUrunSel.selectedIndex = 0;
+            var yeniMiktar = newRow.querySelector('.miktar-input');
+            if (yeniMiktar) yeniMiktar.value = '';
+            var yeniBirimFiyat = newRow.querySelector('.birim-fiyat-input');
+            if (yeniBirimFiyat) yeniBirimFiyat.value = '';
+            var yeniToplam = newRow.querySelector('.toplam-fiyat-input');
+            if (yeniToplam) yeniToplam.value = '';
+            newRow.querySelector('.urun-stok').textContent = '—';
+            var seriWrap = newRow.querySelector('.seri-textarea-wrap');
+            if (seriWrap) {
+                var sc = seriWrap.querySelector('.seri-inputs-container');
+                if (sc) sc.innerHTML = '';
+                var sh = seriWrap.querySelector('.seri-numaralari-hidden');
+                if (sh) sh.value = '';
+            }
+            var seriCb = newRow.querySelector('.seri-girilsin-row-cb');
+            if (seriCb) { seriCb.checked = false; seriCb._seriBound = false; }
+            var seriTd = newRow.querySelector('td.seri-column');
+            if (seriTd) seriTd.classList.remove('show-textarea');
+            var miktarInp = newRow.querySelector('.miktar-input');
+            if (miktarInp) miktarInp._seriBound = false;
+            var removeBtn = newRow.querySelector('.btn-row-remove');
+            if (removeBtn) removeBtn._bound = false;
+            container.appendChild(newRow);
+            initChoicesForRow(newRow);
+            bindRow(newRow);
+            bindSeriCheckbox(newRow);
+            bindRemove(newRow);
+        });
+
+        function bindRemove(row) {
+            var btn = row.querySelector('.btn-row-remove');
+            if (!btn || btn._bound) return;
+            btn._bound = true;
+            btn.addEventListener('click', function () {
+                var rows = container.querySelectorAll('.urun-row');
+                if (rows.length <= 1) return;
+                row.remove();
+            });
+        }
+        bindRemove(firstRow);
+
+        // Müşteri seçimi için arama destekli select + alanları otomatik doldurma.
+        var customerSelect = document.getElementById('customer-select');
+        var customerIdInput = document.getElementById('customer_id');
+        var inputAd = document.getElementById('musteri_adi');
+        var inputTel = document.getElementById('musteri_telefon');
+        var inputAdres = document.getElementById('musteri_adres');
+        var inputEmail = document.getElementById('musteri_email');
+        var inputLokasyon = document.getElementById('musteri_lokasyon');
+
+        function fillCustomerFields(c) {
+            if (!inputAd || !inputTel || !inputAdres || !inputEmail || !inputLokasyon) return;
+            if (!c) {
+                inputAd.value = '';
+                inputTel.value = '';
+                inputAdres.value = '';
+                inputEmail.value = '';
+                inputLokasyon.value = '';
+                return;
+            }
+            inputAd.value = c.ad || '';
+            inputTel.value = c.telefon || '';
+            inputAdres.value = c.adres || '';
+            inputEmail.value = c.email || '';
+            inputLokasyon.value = c.lokasyon_proje || '';
+        }
+
+        if (customerSelect) {
+            if (window.Choices) {
+                customerSelect._choicesInstance = new Choices(customerSelect, {
+                    searchEnabled: true,
+                    itemSelectText: '',
+                    shouldSort: false,
+                    position: 'bottom',
+                    placeholder: true,
+                    placeholderValue: '— Firma seçin —',
+                    searchPlaceholderValue: 'Firma ara...',
+                    noResultsText: 'Sonuç bulunamadı',
+                    noChoicesText: 'Gösterilebilecek firma yok'
+                });
+            }
+            customerSelect.addEventListener('change', function () {
+                var val = customerSelect._choicesInstance
+                    ? customerSelect._choicesInstance.getValue(true)
+                    : customerSelect.value;
+                if (Array.isArray(val)) val = val[0] || '';
+                if (!val) {
+                    if (customerIdInput) customerIdInput.value = '';
+                    fillCustomerFields(null);
+                    return;
+                }
+                if (val === '__yeni__') {
+                    if (customerIdInput) customerIdInput.value = '';
+                    fillCustomerFields(null);
+                    if (inputAd) inputAd.focus();
+                    return;
+                }
+                var c = customerMap[String(val)];
+                if (!c && customerMap[String(parseInt(val, 10))]) {
+                    c = customerMap[String(parseInt(val, 10))];
+                }
+                if (c) {
+                    if (customerIdInput) customerIdInput.value = c.id;
+                    fillCustomerFields(c);
+                }
+            });
+        }
+
+        // "Gönder ve stoktan düş" butonu için onay modalı (sekreter paneliyle aynı stil).
+        var form = document.getElementById('musteriye-gonder-form');
+        var modal = document.getElementById('musteriye-gonder-onay-modal');
+        var btnEvet = document.getElementById('musteriye-gonder-modal-evet');
+        var btnIptal = document.getElementById('musteriye-gonder-modal-iptal');
+        var allowSubmit = false;
+
+        function closeModal() {
+            if (modal) modal.hidden = true;
+        }
+
+        if (form) {
+            form.addEventListener('submit', function (e) {
+                if (allowSubmit) return;
+                // Önce tarayıcı doğrulamalarını çalıştır (required vs.) – geçmezse modal açma.
+                if (typeof form.checkValidity === 'function' && !form.checkValidity()) {
+                    return;
+                }
+                e.preventDefault();
+                if (modal) modal.hidden = false;
+            });
+        }
+        if (btnEvet) btnEvet.addEventListener('click', function () {
+            allowSubmit = true;
+            closeModal();
+            if (form) {
+                // requestSubmit varsa native doğrulamayı da tetikler; allowSubmit ile döngü kırılır.
+                if (typeof form.requestSubmit === 'function') form.requestSubmit();
+                else form.submit();
+            }
+            allowSubmit = false;
+        });
+        if (btnIptal) btnIptal.addEventListener('click', function () { closeModal(); });
+        if (modal) modal.addEventListener('click', function (e) { if (e.target === modal) closeModal(); });
+    });
+})();
+        </script>
+        {% endif %}
+    </div>
+</div>
+{% endblock %}

@@ -1,0 +1,124 @@
+{% extends "base.html" %}
+{% from 'includes/pagination.html' import render_pagination %}
+{% block title %}Firmaya Göre Cihazlar - SER-CRM{% endblock %}
+{% block content %}
+<div class="container page">
+    <div class="page-header">
+        <h1>Firmaya göre cihaz listesi</h1>
+        <div class="header-actions">
+            <a href="{{ url_for('secretary.index') }}" class="btn btn-outline">← Sekreterlik listesine dön</a>
+        </div>
+    </div>
+    <div class="card">
+        <h2>Firma arama</h2>
+        <form method="get" class="search-form">
+            <input type="text" name="q" value="{{ arama }}" placeholder="Firma adı, telefon veya adres ara..." class="search-input" autofocus oninput="if(!this.value.trim())this.form.submit()">
+            {% if secili_musteri %}
+            <input type="hidden" name="musteri_adi" value="{{ secili_musteri_adi }}">
+            <input type="hidden" name="musteri_telefon" value="{{ secili_musteri_telefon or '' }}">
+            {% endif %}
+            <input type="hidden" name="page" value="1">
+            <button type="submit" class="btn btn-primary">Ara</button>
+        </form>
+
+        {% if not pagination.items %}
+        <p class="empty">Bu arama kriterine göre kayıt bulunamadı.</p>
+        {% else %}
+
+        {% if not secili_musteri %}
+        {# Müşteri listesi #}
+        <p class="form-hint">Toplam {{ pagination.total }} firma bulundu.</p>
+        <div class="table-wrap">
+            <table class="data-table">
+                <thead>
+                    <tr>
+                        <th>Firma</th>
+                        <th>Telefon</th>
+                        <th>Adres</th>
+                        <th>Lokasyon / Proje</th>
+                        <th>İşlem</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for m in pagination.items %}
+                    <tr>
+                        <td>{{ m.musteri_adi }}</td>
+                        <td>{{ m.musteri_telefon or '-' }}</td>
+                        <td>{{ m.musteri_adres or '-' }}</td>
+                        <td>
+                            {# m burada GROUP BY ile gelen Device alanları; Customer.lokasyon_proje doğrudan yok, bu tabloda boş bırakıyoruz #}
+                            —
+                        </td>
+                        <td class="actions">
+                            <a href="{{ url_for('secretary.musteri_cihazlari', musteri_adi=m.musteri_adi, musteri_telefon=m.musteri_telefon, q=arama, page=1) }}" class="btn btn-sm btn-primary">Cihazları göster</a>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        {{ render_pagination(pagination, 'secretary.musteri_cihazlari', info_text='firma', q=arama) }}
+
+        {% else %}
+        {# Seçili müşterinin cihaz listesi #}
+        <div class="form-actions" style="margin-bottom:0.5rem; display:flex; justify-content:space-between; align-items:center; gap:1rem;">
+            <p class="form-hint" style="margin:0;">
+                Firma: <strong>{{ secili_musteri_adi }}</strong>{% if secili_musteri_telefon %} ({{ secili_musteri_telefon }}){% endif %} – Toplam {{ pagination.total }} cihaz
+            </p>
+            <a href="{{ url_for('secretary.musteri_cihazlari', q=arama, page=1) }}" class="btn btn-outline">← Firma listesine dön</a>
+        </div>
+        <form method="post" action="{{ url_for('secretary.musteri_cihazlari_toplu') }}">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+            <input type="hidden" name="q" value="{{ arama }}">
+            <input type="hidden" name="page" value="{{ pagination.page }}">
+            <div class="bulk-actions">
+                <button type="submit" name="toplu_islem" value="teknik_servise_gonder" class="btn btn-primary">Seçilenleri teknik servise gönder</button>
+                <button type="submit" name="toplu_islem" value="kargolandı_isaretle" class="btn btn-success">Seçilenleri kargolandı işaretle</button>
+                <span class="bulk-hint">Durumu "Cihaz geldi" olanlar teknik servise gönderilebilir, "Arızalar tamamlandı" olanlar kargolandı işaretlenebilir.</span>
+            </div>
+            <div class="table-wrap">
+                <table class="data-table">
+                    <thead>
+                        <tr>
+                            <th class="col-check">Seç</th>
+                            <th>Cihaz markası</th>
+                            <th>Model</th>
+                            <th>Seri no</th>
+                            <th>Durum</th>
+                            <th>Tarih</th>
+                            <th>İşlem</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for c in pagination.items %}
+                        <tr>
+                            <td class="col-check">
+                                {% if c.durum == 'geldi' %}
+                                <input type="checkbox" name="cihaz_id" value="{{ c.id }}">
+                                {% elif c.durum == 'arizalar_tamamlandi' %}
+                                <input type="checkbox" name="kargo_cihaz_id" value="{{ c.id }}">
+                                {% else %}
+                                <span class="no-check">—</span>
+                                {% endif %}
+                            </td>
+                            <td>{{ (c.cihaz_marka or c.cihaz_bilgisi)[:60] }}{% if (c.cihaz_marka or c.cihaz_bilgisi)|length > 60 %}...{% endif %}</td>
+                            <td>{{ c.cihaz_model or '-' }}</td>
+                            <td>{{ c.seri_no or '-' }}</td>
+                            <td><span class="badge badge-{{ c.durum }}">{{ c.DURUMLAR.get(c.durum, c.durum) }}</span></td>
+                            <td>{{ c.created_at.strftime('%d.%m.%Y %H:%M') }}</td>
+                            <td class="actions">
+                                <a href="{{ url_for('secretary.cihaz_detay', id=c.id, return_tab='musteri_cihazlari', return_musteri_adi=secili_musteri_adi, return_musteri_telefon=secili_musteri_telefon or '', return_page=pagination.page, return_q=arama, return_sort='created_at', return_order='desc') }}" class="btn btn-sm">Detay</a>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </form>
+        {{ render_pagination(pagination, 'secretary.musteri_cihazlari', info_text='cihaz', q=arama, musteri_adi=secili_musteri_adi or '', musteri_telefon=secili_musteri_telefon or '') }}
+        {% endif %}
+        {% endif %}
+    </div>
+</div>
+{% endblock %}
+

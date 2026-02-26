@@ -1,0 +1,248 @@
+{% extends "base.html" %}
+{% block title %}Cihaz #{{ cihaz.id }} - SER-CRM{% endblock %}
+{% block content %}
+<div class="container page">
+    <div class="page-header">
+        <h1>Cihaz #{{ cihaz.id }}{% if cihaz.durum == 'arizalar_tamamlandi' %} – Detay{% else %} – Arıza girişi{% endif %}</h1>
+        <div class="header-actions">
+            {% if return_tab == 'musteri_cihazlari' and return_musteri_adi %}
+            <a href="{{ url_for('technical.index', tab='musteri_cihazlari', musteri_adi=return_musteri_adi, musteri_telefon=return_musteri_telefon or '', q=return_q or '', page=return_page or 1) }}" class="btn btn-outline">← Firma cihazlarına dön</a>
+            {% endif %}
+            {% if return_tab == 'musteri_cihazlari' %}
+            <a href="{{ url_for('technical.index', tab='musteri_cihazlari', q=return_q or '', page=1) }}" class="btn btn-outline">← Listeye dön</a>
+            {% else %}
+            <a href="{{ url_for('technical.index', tab=return_tab or 'all', page=return_page or 1, q=return_q or '') }}" class="btn btn-outline">← Listeye dön</a>
+            {% endif %}
+        </div>
+    </div>
+    <div class="card">
+        <div class="detail-header-row">
+            <h2 class="detail-title">
+                <span class="detail-title-main">{{ cihaz.musteri_adi }}</span>
+                <span class="pill pill-muted">Cihaz #{{ cihaz.id }}</span>
+            </h2>
+            <span class="pill pill-info">
+                {{ cihaz.DURUMLAR.get(cihaz.durum, cihaz.durum) }}
+            </span>
+        </div>
+
+        {% if first_seen_date %}
+        <div class="serial-warning">
+            Bu cihaz daha önce {{ first_seen_date.strftime('%d.%m.%Y') }} tarihinde gelmiştir.
+        </div>
+        {% endif %}
+
+        <div class="detail-grid">
+            <section class="detail-section">
+                <h3>Firma bilgileri</h3>
+                <table class="detail-table">
+                    <tr><th>Firma adı</th><td>{{ cihaz.musteri_adi }}</td></tr>
+                    <tr><th>Yetkili kişi</th><td>{{ cihaz.customer.yetkili_kisi if cihaz.customer and cihaz.customer.yetkili_kisi else '-' }}</td></tr>
+                    <tr><th>Lokasyon / Proje</th><td>{{ cihaz.customer.lokasyon_proje if cihaz.customer and cihaz.customer.lokasyon_proje else 'Lokasyon / proje yok' }}</td></tr>
+                    <tr><th>Firma arıza şikayeti</th><td>{{ cihaz.aciklama or '-' }}</td></tr>
+                </table>
+            </section>
+
+            <section class="detail-section">
+                <h3>Cihaz bilgileri</h3>
+                <table class="detail-table">
+                    <tr><th>Durum</th><td><span class="badge badge-{{ cihaz.durum }}">{{ cihaz.DURUMLAR.get(cihaz.durum, cihaz.durum) }}</span></td></tr>
+                    <tr><th>Cihaz markası</th><td>{{ cihaz.cihaz_marka or cihaz.cihaz_bilgisi }}</td></tr>
+                    <tr><th>Model</th><td>{{ cihaz.cihaz_model or '-' }}</td></tr>
+                    <tr><th>Seri numarası</th><td>{{ cihaz.seri_no or '-' }}</td></tr>
+                </table>
+            </section>
+        </div>
+        {% include 'includes/surec_tarihleri.html' %}
+        <h3 class="form-section-title">Yapılan arızalar ({{ cihaz.faults.count() }} adet)</h3>
+        {% if cihaz.durum == 'teknik_serviste_tamir' %}
+        {# Tamir aşaması: arızaları yapıldı işaretle, tamamlandı butonu #}
+        {% endif %}
+        {% if cihaz.durum == 'arizalar_tamamlandi' %}
+        {# Tamamlanmış cihaz: sadece okuma #}
+        {% if cihaz.faults.count() %}
+        <ul class="fault-list">
+            {% for f in cihaz.faults %}
+            <li>
+                <span class="fault-text">{{ f.aciklama }}</span>
+                <span class="badge badge-success">Yapıldı</span>
+            </li>
+            {% endfor %}
+        </ul>
+        {% else %}
+        <p class="empty">Bu cihazda kayıtlı arıza yok.</p>
+        {% endif %}
+        {% elif cihaz.durum in ('teknik_serviste', 'teknik_serviste_tamir') %}
+        {# Ön inceleme veya tamir: arıza ekleme sadece ön incelemede; tamir aşamasında mevcut arızaları yapıldı işaretleyebilir #}
+        {% if cihaz.durum == 'teknik_serviste' %}
+        <form method="post" class="form-inline" style="margin-bottom:1rem;">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+            <input type="hidden" name="action" value="ariza_ekle">
+            {% if return_tab %}<input type="hidden" name="return_tab" value="{{ return_tab }}">{% endif %}
+            {% if return_page %}<input type="hidden" name="return_page" value="{{ return_page }}">{% endif %}
+            {% if return_q is not none %}<input type="hidden" name="q" value="{{ return_q }}">{% endif %}
+            {% if return_tab == 'musteri_cihazlari' and return_musteri_adi %}<input type="hidden" name="return_musteri_adi" value="{{ return_musteri_adi }}"><input type="hidden" name="return_musteri_telefon" value="{{ return_musteri_telefon or '' }}">{% endif %}
+            <input type="text" name="ariza_aciklama" placeholder="Arıza açıklaması (örn: Ekran kırık, batarya değişimi)" style="flex:1; min-width:200px;">
+            <button type="submit" class="btn btn-primary">Arıza ekle</button>
+        </form>
+        {% else %}
+        <p class="form-hint">Tamir aşamasındaki cihazlara yeni arıza eklenemez. Mevcut arızaları yapıldı işaretleyip tamamlandığında sekreterliğe bildirin.</p>
+        {% endif %}
+
+        {% if cihaz.faults.count() %}
+        <ul class="fault-list">
+            {% for f in cihaz.faults %}
+            <li>
+                {{ f.aciklama }}
+                {% if not f.yapildi %}
+                <span class="fault-actions">
+                    {% if cihaz.durum == 'teknik_serviste_tamir' %}
+                    <form method="post">
+                        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                        <input type="hidden" name="action" value="ariza_yapildi">
+                        <input type="hidden" name="fault_id" value="{{ f.id }}">
+                        {% if return_tab %}<input type="hidden" name="return_tab" value="{{ return_tab }}">{% endif %}
+                        {% if return_page %}<input type="hidden" name="return_page" value="{{ return_page }}">{% endif %}
+                        {% if return_q is not none %}<input type="hidden" name="q" value="{{ return_q }}">{% endif %}
+                        {% if return_tab == 'musteri_cihazlari' and return_musteri_adi %}<input type="hidden" name="return_musteri_adi" value="{{ return_musteri_adi }}"><input type="hidden" name="return_musteri_telefon" value="{{ return_musteri_telefon or '' }}">{% endif %}
+                        <button type="submit" class="btn btn-sm btn-success">Yapıldı işaretle</button>
+                    </form>
+                    {% endif %}
+                    {% if cihaz.durum == 'teknik_serviste' %}
+                    <form method="post">
+                        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                        <input type="hidden" name="action" value="ariza_sil">
+                        <input type="hidden" name="fault_id" value="{{ f.id }}">
+                        {% if return_tab %}<input type="hidden" name="return_tab" value="{{ return_tab }}">{% endif %}
+                        {% if return_page %}<input type="hidden" name="return_page" value="{{ return_page }}">{% endif %}
+                        {% if return_q is not none %}<input type="hidden" name="q" value="{{ return_q }}">{% endif %}
+                        {% if return_tab == 'musteri_cihazlari' and return_musteri_adi %}<input type="hidden" name="return_musteri_adi" value="{{ return_musteri_adi }}"><input type="hidden" name="return_musteri_telefon" value="{{ return_musteri_telefon or '' }}">{% endif %}
+                        <button type="submit" class="btn btn-sm btn-sil">Sil</button>
+                    </form>
+                    {% endif %}
+                </span>
+                {% else %}
+                <span class="badge badge-success">Yapıldı</span>
+                {% endif %}
+            </li>
+            {% endfor %}
+        </ul>
+        {% if cihaz.durum == 'teknik_serviste' and cihaz.faults.count() > 0 %}
+        <p class="form-hint">Ön inceleme arızalarını ekledikten sonra aşağıdaki butonla sekreterliğe bildirin.</p>
+        <form id="on-inceleme-form" method="post" style="margin-top:1rem;">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+            <input type="hidden" name="action" value="on_inceleme_tamamlandi">
+            {% if return_tab %}<input type="hidden" name="return_tab" value="{{ return_tab }}">{% endif %}
+            {% if return_page %}<input type="hidden" name="return_page" value="{{ return_page }}">{% endif %}
+            {% if return_q is not none %}<input type="hidden" name="q" value="{{ return_q }}">{% endif %}
+            {% if return_tab == 'musteri_cihazlari' and return_musteri_adi %}<input type="hidden" name="return_musteri_adi" value="{{ return_musteri_adi }}"><input type="hidden" name="return_musteri_telefon" value="{{ return_musteri_telefon or '' }}">{% endif %}
+            <button type="button" class="btn btn-primary" id="on-inceleme-tamamlandi-btn">Ön inceleme tamamlandı – Sekreterliğe bildir</button>
+        </form>
+        <div id="on-inceleme-onay-modal" class="modal-overlay" role="dialog" aria-labelledby="on-inceleme-modal-title" aria-modal="true" hidden>
+            <div class="modal-content">
+                <p id="on-inceleme-modal-title" class="modal-message">Cihazın ön incelemesini tamamladınız. Hazırladığınız rapor firmaya gönderilecektir. Devam etmek istiyor musunuz?</p>
+                <div class="modal-actions">
+                    <button type="button" class="btn btn-primary" id="on-inceleme-modal-evet">Evet</button>
+                    <button type="button" class="btn btn-outline" id="on-inceleme-modal-iptal">İptal</button>
+                </div>
+            </div>
+        </div>
+        <script>
+        (function() {
+            var btn = document.getElementById('on-inceleme-tamamlandi-btn');
+            var modal = document.getElementById('on-inceleme-onay-modal');
+            var form = document.getElementById('on-inceleme-form');
+            if (!btn || !modal || !form) return;
+            btn.addEventListener('click', function() { modal.hidden = false; });
+            document.getElementById('on-inceleme-modal-evet').addEventListener('click', function() { modal.hidden = true; form.submit(); });
+            document.getElementById('on-inceleme-modal-iptal').addEventListener('click', function() { modal.hidden = true; });
+            modal.addEventListener('click', function(e) { if (e.target === modal) modal.hidden = true; });
+        })();
+        </script>
+        {% elif cihaz.durum == 'teknik_serviste_tamir' and cihaz.faults.count() > 0 %}
+        {% set tum_arizalar_yapildi = (cihaz.faults.filter_by(yapildi=False).count() == 0) %}
+        {% if tum_arizalar_yapildi %}
+        <div class="form-section-title" style="margin-top:1rem;">Kontrol kişisi</div>
+        {% if not cihaz.kontrol_kisi_id %}
+        <p class="form-hint">Sekreterliğe bildirmeden önce başka bir teknik personelin kontrol onayı gerekir. Kontrol kişisi atayın.</p>
+        <form method="post" style="margin-top:0.5rem; display:flex; align-items:center; gap:0.75rem; flex-wrap:wrap;">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+            <input type="hidden" name="action" value="kontrol_kisi_ata">
+            {% if return_tab %}<input type="hidden" name="return_tab" value="{{ return_tab }}">{% endif %}
+            {% if return_page %}<input type="hidden" name="return_page" value="{{ return_page }}">{% endif %}
+            {% if return_q is not none %}<input type="hidden" name="q" value="{{ return_q }}">{% endif %}
+            {% if return_tab == 'musteri_cihazlari' and return_musteri_adi %}<input type="hidden" name="return_musteri_adi" value="{{ return_musteri_adi }}"><input type="hidden" name="return_musteri_telefon" value="{{ return_musteri_telefon or '' }}">{% endif %}
+            <select name="kontrol_kisi_id" required class="styled-select" style="min-width:180px;">
+                <option value="">— Kontrol kişisi seçin —</option>
+                {% for u in teknik_users or [] %}
+                <option value="{{ u.id }}">{{ u.username }}</option>
+                {% endfor %}
+            </select>
+            <button type="submit" class="btn btn-primary">Kontrol kişisi ata</button>
+        </form>
+        {% elif not cihaz.kontrol_onaylandi_at %}
+        <p class="form-hint">Kontrol bekliyor: <strong>{{ cihaz.kontrol_kisi.username if cihaz.kontrol_kisi else '-' }}</strong>. Sekreterliğe bildir butonu, kontrol kişisi onayladıktan sonra aktif olacaktır.</p>
+        {% if cihaz.kontrol_kisi_id == current_user.id %}
+        <form method="post" style="margin-top:0.5rem;">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+            <input type="hidden" name="action" value="kontrol_onayla">
+            {% if return_tab %}<input type="hidden" name="return_tab" value="{{ return_tab }}">{% endif %}
+            {% if return_page %}<input type="hidden" name="return_page" value="{{ return_page }}">{% endif %}
+            {% if return_q is not none %}<input type="hidden" name="q" value="{{ return_q }}">{% endif %}
+            {% if return_tab == 'musteri_cihazlari' and return_musteri_adi %}<input type="hidden" name="return_musteri_adi" value="{{ return_musteri_adi }}"><input type="hidden" name="return_musteri_telefon" value="{{ return_musteri_telefon or '' }}">{% endif %}
+            <button type="submit" class="btn btn-success">Kontrol onayladım</button>
+        </form>
+        {% endif %}
+        {% else %}
+        <p class="form-hint" style="margin-top:0.5rem;">Kontrol onaylandı ({{ cihaz.kontrol_onaylandi_at.strftime('%d.%m.%Y %H:%M') if cihaz.kontrol_onaylandi_at else '' }}).{% if cihaz.tamir_yapan_id and cihaz.tamir_yapan_id != current_user.id %} Sekreterliğe bildir butonuna sadece tamiri yapan personel ({{ cihaz.tamir_yapan.username if cihaz.tamir_yapan else '-' }}) basabilir.{% else %} Aşağıdaki butonla sekreterliğe bildirebilirsiniz.{% endif %}</p>
+        {% endif %}
+        <form id="sekreterlige-gonder-form" method="post" style="margin-top:1rem;">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+            <input type="hidden" name="action" value="arizalar_tamamlandi">
+            {% if return_tab %}<input type="hidden" name="return_tab" value="{{ return_tab }}">{% endif %}
+            {% if return_page %}<input type="hidden" name="return_page" value="{{ return_page }}">{% endif %}
+            {% if return_q is not none %}<input type="hidden" name="q" value="{{ return_q }}">{% endif %}
+            {% if return_tab == 'musteri_cihazlari' and return_musteri_adi %}<input type="hidden" name="return_musteri_adi" value="{{ return_musteri_adi }}"><input type="hidden" name="return_musteri_telefon" value="{{ return_musteri_telefon or '' }}">{% endif %}
+            {% set sekreterlige_basabilir = cihaz.kontrol_onaylandi_at and (not cihaz.tamir_yapan_id or cihaz.tamir_yapan_id == current_user.id) %}
+            <button type="button" class="btn btn-primary" id="sekreterlige-gonder-btn" {% if not sekreterlige_basabilir %}disabled{% endif %}>Tüm arızalar tamamlandı – Sekreterliğe bildir</button>
+        </form>
+        {% endif %}
+        {% endif %}
+        <div id="sekreterlige-gonder-modal" class="modal-overlay" role="dialog" aria-labelledby="modal-title" aria-modal="true" hidden>
+            <div class="modal-content">
+                <p id="modal-title" class="modal-message">Bu işlemi geri alamazsınız. Cihazları sekreterliğe göndermek istediğinize emin misiniz?</p>
+                <div class="modal-actions">
+                    <button type="button" class="btn btn-primary" id="modal-evet">Evet</button>
+                    <button type="button" class="btn btn-outline" id="modal-iptal">İptal</button>
+                </div>
+            </div>
+        </div>
+        <script>
+        (function() {
+            var btn = document.getElementById('sekreterlige-gonder-btn');
+            var modal = document.getElementById('sekreterlige-gonder-modal');
+            var form = document.getElementById('sekreterlige-gonder-form');
+            if (!btn || !modal || !form) return;
+            btn.addEventListener('click', function() {
+                if (btn.disabled) return;
+                modal.hidden = false;
+            });
+            document.getElementById('modal-evet').addEventListener('click', function() {
+                modal.hidden = true;
+                form.submit();
+            });
+            document.getElementById('modal-iptal').addEventListener('click', function() {
+                modal.hidden = true;
+            });
+            modal.addEventListener('click', function(e) {
+                if (e.target === modal) modal.hidden = true;
+            });
+        })();
+        </script>
+        {% else %}
+        <p class="empty">Henüz arıza eklenmedi. Yukarıdan arıza ekleyin.</p>
+        {% endif %}
+        {% endif %}
+    </div>
+</div>
+{% endblock %}

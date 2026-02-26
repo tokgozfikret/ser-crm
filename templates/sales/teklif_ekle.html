@@ -1,0 +1,231 @@
+{% extends "base.html" %}
+{% block title %}Teklif ver - Satış{% endblock %}
+{% block content %}
+<style>
+.teklif-ekle-page { max-width: 960px; margin: 0 auto; }
+.teklif-ekle-header { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 1rem; margin-bottom: 1.5rem; }
+.teklif-no-badge { font-size: 1.25rem; font-weight: 700; letter-spacing: 0.02em; color: var(--primary, #2563eb); background: rgba(37, 99, 235, 0.08); padding: 0.5rem 1rem; border-radius: 8px; border: 1px solid rgba(37, 99, 235, 0.2); }
+.teklif-ekle-card { background: #fff; border-radius: 12px; box-shadow: 0 1px 3px rgba(0,0,0,0.06); border: 1px solid #e5e7eb; overflow: hidden; }
+.teklif-ekle-card .form-modern { padding: 1.75rem; }
+.teklif-ekle-card .form-section-title { font-size: 0.8rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.04em; color: #6b7280; margin: 1.5rem 0 0.75rem; padding-bottom: 0.35rem; border-bottom: 1px solid #e5e7eb; }
+.teklif-ekle-card .form-section-title:first-of-type { margin-top: 0; }
+.teklif-ekle-card .form-row { display: grid; gap: 1rem; }
+.teklif-ekle-card .form-group label { font-size: 0.85rem; font-weight: 500; color: #374151; }
+.teklif-ekle-card .form-group input[type="text"], .teklif-ekle-card .form-group input[type="email"], .teklif-ekle-card .form-group input[type="number"], .teklif-ekle-card .form-group input[type="date"], .teklif-ekle-card .form-group select, .teklif-ekle-card .form-group textarea { border-radius: 8px; border: 1px solid #d1d5db; padding: 0.5rem 0.75rem; font-size: 0.95rem; }
+.teklif-ekle-card .form-actions { margin-top: 1.5rem; padding-top: 1rem; border-top: 1px solid #e5e7eb; display: flex; gap: 0.75rem; flex-wrap: wrap; }
+</style>
+<div class="container page teklif-ekle-page">
+    <div class="teklif-ekle-header">
+        <div style="display: flex; align-items: center; gap: 1rem;">
+            <span class="teklif-no-badge">{{ next_teklif_no|default('TKL-00001') }}</span>
+            <h1 style="margin: 0; font-size: 1.35rem; font-weight: 600; color: #111;">Yeni teklif</h1>
+        </div>
+        <a href="{{ url_for('sales.index', tab='teklif') }}" class="btn btn-outline">← Teklif geçmişine dön</a>
+    </div>
+    <div class="card teklif-ekle-card">
+        <form method="post" action="{{ url_for('sales.teklif_ekle') }}" id="teklif-form" class="form-modern">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+            <h3 class="form-section-title">Firma bilgileri</h3>
+            <div class="form-row" style="grid-template-columns: 1fr 1fr;">
+                <div class="form-group">
+                    <label for="firma_adi">Firma adı *</label>
+                    <input type="text" id="firma_adi" name="firma_adi" required placeholder="Teklif verilen firma adı">
+                </div>
+                <div class="form-group">
+                    <label for="yetkilisi">Yetkilisi</label>
+                    <input type="text" id="yetkilisi" name="yetkilisi" placeholder="Yetkili kişi adı">
+                </div>
+            </div>
+            <h3 class="form-section-title">İletişim</h3>
+            <div class="form-row" style="grid-template-columns: 1fr 1fr;">
+                <div class="form-group">
+                    <label for="telefon">Telefon</label>
+                    <input type="text" id="telefon" name="telefon" placeholder="05xx xxx xx xx">
+                </div>
+                <div class="form-group">
+                    <label for="email">E-posta</label>
+                    <input type="email" id="email" name="email" placeholder="ornek@firma.com">
+                </div>
+            </div>
+            <div class="form-group">
+                <label for="adres">Adres</label>
+                <textarea id="adres" name="adres" rows="2" placeholder="Açık adres" style="border-radius:8px; border:1px solid #d1d5db; padding:0.5rem 0.75rem; width:100%;"></textarea>
+            </div>
+            <h3 class="form-section-title">Teklif bilgileri</h3>
+            <div class="form-row" style="grid-template-columns: 1fr 1fr;">
+                <div class="form-group">
+                    <label for="teklif_tarihi">Teklif tarihi *</label>
+                    <input type="date" id="teklif_tarihi" name="teklif_tarihi" required value="{{ request.form.teklif_tarihi or '' }}">
+                </div>
+                <div class="form-group">
+                    <label for="teklif_gecerlilik_tarihi">Teklif geçerlilik tarihi</label>
+                    <input type="date" id="teklif_gecerlilik_tarihi" name="teklif_gecerlilik_tarihi" value="{{ request.form.teklif_gecerlilik_tarihi or '' }}" placeholder="Geçerlilik tarihi">
+                </div>
+            </div>
+            <div class="form-row" style="grid-template-columns: 1fr 1fr;">
+                <div class="form-group">
+                    <label for="odeme_suresi">Ödeme süresi</label>
+                    <input type="text" id="odeme_suresi" name="odeme_suresi" placeholder="Örn: 30 gün vadeli" value="{{ request.form.odeme_suresi or '' }}">
+                </div>
+                <div class="form-group">
+                    <label for="teslimat_zamani">Teslimat zamanı</label>
+                    <input type="text" id="teslimat_zamani" name="teslimat_zamani" placeholder="Örn: Siparişten itibaren 2 hafta" value="{{ request.form.teslimat_zamani or '' }}">
+                </div>
+            </div>
+            <div class="form-row" style="grid-template-columns: 1fr 1fr;">
+                <div class="form-group">
+                    <label for="referans">Referans</label>
+                    <input type="text" id="referans" name="referans" placeholder="Referans" value="{{ request.form.referans or '' }}">
+                </div>
+                <div class="form-group">
+                    <label for="hazirlayan_user_id">Hazırlayan</label>
+                    <select id="hazirlayan_user_id" name="hazirlayan_user_id" class="styled-select">
+                        <option value="">Seçiniz</option>
+                        {% for u in satis_personelleri %}
+                        <option value="{{ u.id }}" {% if current_user.id == u.id %}selected{% endif %}>{{ u.username }}{% if u.first_name or u.last_name %} ({{ (u.first_name or '') }} {{ (u.last_name or '') }}){% endif %}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label for="aciklama">Açıklama</label>
+                    <textarea id="aciklama" name="aciklama" rows="2" placeholder="Teklif açıklaması (isteğe bağlı)" style="border-radius:8px; border:1px solid #d1d5db; padding:0.5rem 0.75rem; width:100%;"></textarea>
+                </div>
+            </div>
+            <h3 class="form-section-title">Teklif edilen ürünler</h3>
+            <p class="form-hint" style="font-size:0.875rem; color:#6b7280; margin:0 0 0.5rem;">Birden çok ürün ekleyebilirsiniz. En az bir satırda marka veya model girin. Her satır için para birimi, garanti ve KDV seçebilirsiniz.</p>
+            <p class="form-hint" style="font-size:0.8rem; color:#6b7280; margin:0 0 1rem; font-style:italic;">Kur bilgisi: T.C. Merkez Bankası döviz satış kuru esas alınır.</p>
+            <div id="kalemler-container">
+                <div class="teklif-kalem-satir" data-row="0">
+                    <div class="form-row kalem-row" style="display:grid; grid-template-columns:1fr 1fr 50px 80px 75px 100px 1fr 1fr auto; gap:0.5rem; align-items:end;">
+                        <div class="form-group" style="margin-bottom:0.5rem;">
+                            <label>Marka</label>
+                            <input type="text" name="kalem_marka" placeholder="Marka">
+                        </div>
+                        <div class="form-group" style="margin-bottom:0.5rem;">
+                            <label>Model</label>
+                            <input type="text" name="kalem_model" placeholder="Model">
+                        </div>
+                        <div class="form-group" style="margin-bottom:0.5rem;">
+                            <label>Adet</label>
+                            <input type="number" name="kalem_adet" min="1" value="1" step="1" class="kalem-adet">
+                        </div>
+                        <div class="form-group" style="margin-bottom:0.5rem;">
+                            <label>Para birimi</label>
+                            <select name="kalem_para_birimi" class="styled-select kalem-para-birimi">
+                                <option value="TL" selected>₺ TL</option>
+                                <option value="USD">$ USD</option>
+                                <option value="EUR">€ EUR</option>
+                                <option value="GBP">£ GBP</option>
+                            </select>
+                        </div>
+                        <div class="form-group" style="margin-bottom:0.5rem;">
+                            <label>Garanti</label>
+                            <select name="kalem_garanti_suresi" class="styled-select kalem-garanti">
+                                <option value="">—</option>
+                                <option value="6_ay">6 ay</option>
+                                <option value="1_yil">1 yıl</option>
+                                <option value="2_yil">2 yıl</option>
+                            </select>
+                        </div>
+                        <div class="form-group" style="margin-bottom:0.5rem;">
+                            <label>KDV</label>
+                            <select name="kalem_kdv_durum" class="styled-select kalem-kdv">
+                                <option value="">—</option>
+                                <option value="dahil">KDV dahildir</option>
+                                <option value="dahil_degil">KDV dahil değildir</option>
+                            </select>
+                        </div>
+                        <div class="form-group" style="margin-bottom:0.5rem;">
+                            <label>Birim fiyat</label>
+                            <input type="number" name="kalem_birim_fiyat" min="0" step="0.01" placeholder="0,00" class="kalem-birim">
+                        </div>
+                        <div class="form-group" style="margin-bottom:0.5rem;">
+                            <label>Toplam</label>
+                            <input type="number" name="kalem_toplam_fiyat" min="0" step="0.01" placeholder="0,00" class="kalem-toplam">
+                        </div>
+                        <div class="form-group" style="margin-bottom:0.5rem;">
+                            <button type="button" class="btn btn-sm btn-sil kalem-sil" title="Satırı sil" style="visibility:hidden;">Sil</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="form-actions" style="margin-top:0.5rem;">
+                <button type="button" id="kalem-ekle" class="btn btn-outline">+ Ürün satırı ekle</button>
+            </div>
+            <div class="form-actions" style="margin-top:1rem;">
+                <button type="submit" class="btn btn-primary">Teklifi kaydet</button>
+                <a href="{{ url_for('sales.index', tab='teklif') }}" class="btn btn-outline">İptal</a>
+            </div>
+        </form>
+    </div>
+</div>
+<script>
+(function() {
+    var container = document.getElementById('kalemler-container');
+    var addBtn = document.getElementById('kalem-ekle');
+    if (!container || !addBtn) return;
+
+    function updateSilVisibility() {
+        var rows = container.querySelectorAll('.teklif-kalem-satir');
+        rows.forEach(function(r, i) {
+            var sil = r.querySelector('.kalem-sil');
+            if (sil) sil.style.visibility = rows.length > 1 ? 'visible' : 'hidden';
+        });
+    }
+
+    addBtn.addEventListener('click', function() {
+        var first = container.querySelector('.teklif-kalem-satir');
+        if (!first) return;
+        var clone = first.cloneNode(true);
+        clone.setAttribute('data-row', container.querySelectorAll('.teklif-kalem-satir').length);
+        clone.querySelectorAll('input').forEach(function(inp) {
+            inp.value = inp.classList.contains('kalem-adet') ? '1' : '';
+        });
+        var pb = clone.querySelector('.kalem-para-birimi');
+        if (pb) pb.value = 'TL';
+        var garanti = clone.querySelector('.kalem-garanti');
+        if (garanti) garanti.value = '';
+        var kdv = clone.querySelector('.kalem-kdv');
+        if (kdv) kdv.value = '';
+        container.appendChild(clone);
+        updateSilVisibility();
+        bindRowEvents(clone);
+    });
+
+    function hesaplaSatir(row) {
+        var adet = parseFloat(row.querySelector('.kalem-adet').value) || 0;
+        var birim = parseFloat(row.querySelector('.kalem-birim').value) || 0;
+        var toplamInp = row.querySelector('.kalem-toplam');
+        toplamInp.value = (adet * birim).toFixed(2) || '';
+    }
+    function hesaplaTersSatir(row) {
+        var adet = parseFloat(row.querySelector('.kalem-adet').value) || 1;
+        var toplamInp = row.querySelector('.kalem-toplam');
+        var toplam = parseFloat(toplamInp.value) || 0;
+        if (adet > 0)
+            row.querySelector('.kalem-birim').value = (toplam / adet).toFixed(2) || '';
+    }
+
+    function bindRowEvents(row) {
+        var adet = row.querySelector('.kalem-adet');
+        var birim = row.querySelector('.kalem-birim');
+        var toplam = row.querySelector('.kalem-toplam');
+        if (adet) adet.addEventListener('input', function() { hesaplaSatir(row); });
+        if (birim) birim.addEventListener('input', function() { hesaplaSatir(row); });
+        if (toplam) toplam.addEventListener('input', function() { hesaplaTersSatir(row); });
+        var sil = row.querySelector('.kalem-sil');
+        if (sil) sil.addEventListener('click', function() {
+            if (container.querySelectorAll('.teklif-kalem-satir').length <= 1) return;
+            row.remove();
+            updateSilVisibility();
+        });
+    }
+
+    container.querySelectorAll('.teklif-kalem-satir').forEach(bindRowEvents);
+    updateSilVisibility();
+
+    var dt = document.getElementById('teklif_tarihi');
+    if (dt && !dt.value) dt.value = new Date().toISOString().split('T')[0];
+})();
+</script>
+{% endblock %}

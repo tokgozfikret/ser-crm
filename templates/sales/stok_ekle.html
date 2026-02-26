@@ -1,0 +1,172 @@
+{% extends "base.html" %}
+{% block title %}Stok ekle - SER-CRM{% endblock %}
+{% block content %}
+<div class="container page">
+    <div class="page-header">
+        <h1>Stok ekle</h1>
+        <a href="{{ url_for('sales.index') }}" class="btn btn-outline">← Listeye dön</a>
+    </div>
+    <div class="card">
+        <form method="post" class="form-modern">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+            <p class="form-hint">Stok numarası (ör. STK-00001) kayıt kaydedilirken otomatik atanır.</p>
+            <h3 class="form-section-title">Ürün bilgileri</h3>
+            <div class="form-group">
+                <label for="urun_adi">Ürün adı *</label>
+                <input type="text" id="urun_adi" name="urun_adi" required placeholder="Örn: Monitör 24 inç">
+            </div>
+            <div class="form-group">
+                <label for="urun_grubu">Ürün grubu *</label>
+                <select id="urun_grubu" name="urun_grubu" class="styled-select filter-select" required oninvalid="this.setCustomValidity('Ürün grubu seçiniz.')" onchange="this.setCustomValidity('')">
+                    <option value="">Seçiniz</option>
+                    {% for g in urun_grubu_list or [] %}
+                    <option value="{{ g }}">{{ g }}</option>
+                    {% endfor %}
+                    <option value="__yeni__">— Yeni ürün grubu gir —</option>
+                </select>
+            </div>
+            <div class="form-row-2">
+                <div class="form-group">
+                    <label for="marka">Marka</label>
+                    <input type="text" id="marka" name="marka" placeholder="Örn: Lenovo">
+                </div>
+                <div class="form-group">
+                    <label for="model">Model</label>
+                    <input type="text" id="model" name="model" placeholder="Örn: L24q-30">
+                </div>
+            </div>
+            <div class="form-row-2">
+                <div class="form-group">
+                    <label for="miktar">Miktar</label>
+                    <input type="number" id="miktar" name="miktar" min="0" value="0" placeholder="0">
+                </div>
+                <div class="form-group">
+                    <label for="birim">Birim</label>
+                    <input type="text" id="birim" name="birim" value="adet" placeholder="adet, kutu, kg...">
+                </div>
+            </div>
+            <div class="form-group">
+                <label for="aciklama">Açıklama</label>
+                <textarea id="aciklama" name="aciklama" rows="2" placeholder="İsteğe bağlı"></textarea>
+            </div>
+            <div class="form-actions">
+                <button type="submit" class="btn btn-primary">Kaydet</button>
+                <a href="{{ url_for('sales.index') }}" class="btn btn-outline">İptal</a>
+            </div>
+        </form>
+    </div>
+    {% if son_eklenenler %}
+    <div class="card" style="margin-top: 1rem;">
+        <h2 style="margin: 0 0 1rem; font-size: 1.1rem;">Son eklenen 10 ürün</h2>
+        <div class="table-wrap">
+            <table class="data-table">
+                <thead>
+                    <tr>
+                        <th>Stok no</th>
+                        <th>Ürün adı</th>
+                        <th>Marka</th>
+                        <th>Model</th>
+                        <th>Miktar</th>
+                        <th>Birim</th>
+                        <th>İşlem</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for inv in son_eklenenler %}
+                    <tr>
+                        <td><strong>{{ inv.stok_numarasi or '—' }}</strong></td>
+                        <td>{{ inv.urun_adi }}</td>
+                        <td>{{ inv.marka or '—' }}</td>
+                        <td>{{ inv.model or '—' }}</td>
+                        <td>{{ inv.miktar }}</td>
+                        <td>{{ inv.birim }}</td>
+                        <td class="actions">
+                            <a href="{{ url_for('sales.stok_duzenle', id=inv.id) }}" class="btn btn-sm">Düzenle</a>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+    {% endif %}
+</div>
+<div id="yeni-urun-grubu-modal" class="modal-overlay" role="dialog" aria-labelledby="yeni-grup-modal-baslik" aria-modal="true" hidden>
+    <div class="modal-content">
+        <p id="yeni-grup-modal-baslik" class="modal-message">Yeni ürün grubu listesine eklenecek adı yazın. Ekledikten sonra listeden seçebilirsiniz.</p>
+        <div class="form-group" style="margin-bottom: 1rem;">
+            <label for="yeni_grup_adi_modal">Ürün grubu adı</label>
+            <input type="text" id="yeni_grup_adi_modal" placeholder="Örn: Pil, Şarj cihazı">
+        </div>
+        <div class="modal-actions">
+            <button type="button" class="btn btn-primary" id="yeni-grup-modal-ekle">Ekle</button>
+            <button type="button" class="btn btn-outline" id="yeni-grup-modal-iptal">İptal</button>
+        </div>
+    </div>
+</div>
+<script>
+(function() {
+    var sel = document.getElementById('urun_grubu');
+    var modal = document.getElementById('yeni-urun-grubu-modal');
+    var input = document.getElementById('yeni_grup_adi_modal');
+    var btnEkle = document.getElementById('yeni-grup-modal-ekle');
+    var btnIptal = document.getElementById('yeni-grup-modal-iptal');
+    var csrfToken = document.querySelector('form input[name="csrf_token"]').value;
+
+    if (!sel || !modal) return;
+
+    sel.addEventListener('change', function() {
+        if (sel.value === '__yeni__') {
+            if (input) input.value = '';
+            modal.hidden = false;
+            if (input) input.focus();
+        }
+    });
+
+    function closeModal() {
+        modal.hidden = true;
+        sel.value = '';
+    }
+
+    if (btnIptal) btnIptal.addEventListener('click', closeModal);
+    if (modal) modal.addEventListener('click', function(e) {
+        if (e.target === modal) closeModal();
+    });
+
+    if (btnEkle && input) {
+        btnEkle.addEventListener('click', function() {
+            var ad = (input.value || '').trim();
+            if (!ad) {
+                alert('Ürün grubu adı yazın.');
+                return;
+            }
+            var formData = new FormData();
+            formData.append('ad', ad);
+            formData.append('csrf_token', csrfToken);
+            fetch('{{ url_for("sales.urun_grubu_ekle") }}', {
+                method: 'POST',
+                body: formData,
+                headers: { 'X-Requested-With': 'XMLHttpRequest' }
+            })
+            .then(function(r) {
+                if (!r.ok) return r.json().then(function(d) { throw new Error(d.error || 'Hata'); });
+                return r.json();
+            })
+            .then(function(data) {
+                if (data.success && data.ad) {
+                    var opt = document.createElement('option');
+                    opt.value = data.ad;
+                    opt.textContent = data.ad;
+                    opt.selected = true;
+                    sel.insertBefore(opt, sel.querySelector('option[value="__yeni__"]'));
+                    closeModal();
+                }
+            })
+            .catch(function(err) {
+                alert(err.message || 'Eklenemedi.');
+            });
+        });
+    }
+})();
+</script>
+{% endblock %}

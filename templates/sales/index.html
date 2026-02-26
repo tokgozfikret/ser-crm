@@ -1,0 +1,657 @@
+{% extends "base.html" %}
+{% from 'includes/pagination.html' import render_pagination %}
+{% block title %}Satış Paneli - SER-CRM{% endblock %}
+{% block content %}
+<div class="container page">
+    <div class="page-header">
+        <h1>Satış Paneli</h1>
+        <div class="header-actions">
+            <a href="{{ url_for('sales.musteriler') }}" class="btn btn-outline">Firma Yönetimi</a>
+            <a href="{{ url_for('sales.teklif_ekle') }}" class="btn btn-outline">+ Teklif ver</a>
+            <a href="{{ url_for('sales.musteriye_gonder') }}" class="btn btn-primary">Satış</a>
+            <a href="{{ url_for('sales.stok_ekle') }}" class="btn btn-outline">+ Stok ekle</a>
+        </div>
+    </div>
+    <div class="card">
+        <nav class="tabs">
+            <a href="{{ url_for('sales.index', tab='envanter', q=arama|default(''), page=1, urun_grubu=secili_urun_grubu|default(''), marka=secili_marka|default(''), model=secili_model|default('')) }}" class="tab {% if aktif_tab == 'envanter' %}active{% endif %}">Depo stoğu (envanter)</a>
+            <a href="{{ url_for('sales.index', tab='musteri_satis', page=1) }}" class="tab {% if aktif_tab == 'musteri_satis' %}active{% endif %}">Firmaya gönderim geçmişi</a>
+            <a href="{{ url_for('sales.index', tab='teklif', page=1) }}" class="tab {% if aktif_tab == 'teklif' %}active{% endif %}">Teklif</a>
+            <a href="{{ url_for('sales.index', tab='istatistik') }}" class="tab {% if aktif_tab == 'istatistik' %}active{% endif %}">İstatistikler</a>
+        </nav>
+
+        {% if aktif_tab == 'envanter' %}
+        <h2>Depo stok (envanter)</h2>
+        <form method="get" class="search-form envanter-filters" id="envanter-search-form">
+            <input type="hidden" name="tab" value="envanter">
+            <input type="text" name="q" value="{{ arama }}" placeholder="Ürün adı, marka veya model ara..." class="search-input" id="envanter-search-input">
+            <select name="urun_grubu" id="filter-urun-grubu" class="filter-select styled-select" title="Ürün grubu">
+                <option value="">Tüm ürün grupları</option>
+                {% for g in urun_grubu_list or [] %}
+                <option value="{{ g }}" {% if secili_urun_grubu == g %}selected{% endif %}>{{ g }}</option>
+                {% endfor %}
+            </select>
+            <select name="marka" id="filter-marka" class="filter-select styled-select" title="Marka">
+                <option value="">Tüm markalar</option>
+                {% for m in marka_list or [] %}
+                <option value="{{ m }}" {% if secili_marka == m %}selected{% endif %}>{{ m }}</option>
+                {% endfor %}
+            </select>
+            <select name="model" id="filter-model" class="filter-select styled-select" title="Model" {% if not secili_marka %}disabled{% endif %}>
+                <option value="">{% if secili_marka %}Tüm modeller{% else %}Önce marka seçin{% endif %}</option>
+                {% for m in model_list or [] %}
+                <option value="{{ m }}" {% if secili_model == m %}selected{% endif %}>{{ m }}</option>
+                {% endfor %}
+            </select>
+            <input type="hidden" name="page" value="1">
+            <button type="submit" class="btn btn-primary">Ara</button>
+        </form>
+        <script>
+        (function() {
+            var form = document.getElementById('envanter-search-form');
+            var input = document.getElementById('envanter-search-input');
+            var urunGrubuSelect = document.getElementById('filter-urun-grubu');
+            var markaSelect = document.getElementById('filter-marka');
+            var modelSelect = document.getElementById('filter-model');
+            if (form && input) {
+                input.addEventListener('input', function() {
+                    if ((input.value || '').trim() === '') {
+                        form.submit();
+                    }
+                });
+            }
+            if (form && urunGrubuSelect) {
+                urunGrubuSelect.addEventListener('change', function() {
+                    form.submit();
+                });
+            }
+            if (markaSelect && modelSelect) {
+                markaSelect.addEventListener('change', function() {
+                    modelSelect.value = '';
+                    if (markaSelect.value) {
+                        modelSelect.disabled = false;
+                        var opt0 = modelSelect.options[0];
+                        if (opt0) opt0.textContent = 'Tüm modeller';
+                    } else {
+                        modelSelect.disabled = true;
+                        var opt0 = modelSelect.options[0];
+                        if (opt0) opt0.textContent = 'Önce marka seçin';
+                    }
+                    form.submit();
+                });
+            }
+        })();
+        </script>
+        {% if pagination and pagination.items %}
+        <div class="table-wrap">
+            <table class="data-table">
+                <thead>
+                    <tr>
+                        <th>Stok no</th>
+                        <th>Ürün adı</th>
+                        <th>Ürün grubu</th>
+                        <th>Marka</th>
+                        <th>Model</th>
+                        <th>Stok miktarı</th>
+                        <th>Birim</th>
+                        <th>Açıklama</th>
+                        <th>İşlem</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for inv in pagination.items %}
+                    <tr>
+                        <td><strong>{{ inv.stok_numarasi or '—' }}</strong></td>
+                        <td>{{ inv.urun_adi }}</td>
+                        <td>{{ inv.urun_grubu or '—' }}</td>
+                        <td>{{ inv.marka or '—' }}</td>
+                        <td>{{ inv.model or '—' }}</td>
+                        <td><strong>{{ inv.miktar }}</strong></td>
+                        <td>{{ inv.birim }}</td>
+                        <td>{{ inv.aciklama or '—' }}</td>
+                        <td class="actions">
+                            <a href="{{ url_for('sales.stok_duzenle', id=inv.id) }}" class="btn btn-sm">Düzenle</a>
+                            <form id="stok-sil-form-{{ inv.id }}" method="post" action="{{ url_for('sales.stok_sil', id=inv.id) }}" class="inline-form stok-sil-form" style="display:inline;">
+                                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                                <input type="hidden" name="return_page" value="{{ pagination.page if pagination else 1 }}">
+                                <input type="hidden" name="return_q" value="{{ arama }}">
+                                <input type="hidden" name="return_urun_grubu" value="{{ secili_urun_grubu or '' }}">
+                                <input type="hidden" name="return_marka" value="{{ secili_marka or '' }}">
+                                <input type="hidden" name="return_model" value="{{ secili_model or '' }}">
+                                <button type="button" class="btn btn-sm btn-danger stok-sil-btn" data-form-id="stok-sil-form-{{ inv.id }}" data-marka="{{ (inv.marka or '—')|e }}" data-model="{{ (inv.model or '—')|e }}" data-miktar="{{ inv.miktar }}">Sil</button>
+                            </form>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        <div id="stok-sil-modal" class="modal-overlay" role="dialog" aria-labelledby="stok-sil-modal-title" aria-modal="true" hidden>
+            <div class="modal-content">
+                <p id="stok-sil-modal-title" class="modal-message">Bu işlemi geri alamazsınız. … marka … model … adet ürünü silmek istediğinize emin misiniz?</p>
+                <div class="modal-actions">
+                    <button type="button" class="btn btn-primary" id="stok-sil-modal-evet">Evet</button>
+                    <button type="button" class="btn btn-outline" id="stok-sil-modal-iptal">İptal</button>
+                </div>
+            </div>
+        </div>
+        <script>
+        (function() {
+            var modal = document.getElementById('stok-sil-modal');
+            var msgEl = document.getElementById('stok-sil-modal-title');
+            var btnEvet = document.getElementById('stok-sil-modal-evet');
+            var btnIptal = document.getElementById('stok-sil-modal-iptal');
+            var pendingFormId = null;
+            document.querySelectorAll('.stok-sil-btn').forEach(function(btn) {
+                btn.addEventListener('click', function() {
+                    var marka = this.getAttribute('data-marka') || '—';
+                    var model = this.getAttribute('data-model') || '—';
+                    var miktar = this.getAttribute('data-miktar') || '';
+                    if (msgEl) msgEl.textContent = 'Bu işlemi geri alamazsınız. ' + marka + ' marka ' + model + ' model ' + miktar + ' adet ürünü silmek istediğinize emin misiniz?';
+                    pendingFormId = this.getAttribute('data-form-id');
+                    if (modal) modal.hidden = false;
+                });
+            });
+            if (btnEvet) btnEvet.addEventListener('click', function() {
+                if (pendingFormId) {
+                    var f = document.getElementById(pendingFormId);
+                    if (f) f.submit();
+                }
+                pendingFormId = null;
+                if (modal) modal.hidden = true;
+            });
+            if (btnIptal) btnIptal.addEventListener('click', function() { pendingFormId = null; if (modal) modal.hidden = true; });
+            if (modal) modal.addEventListener('click', function(e) { if (e.target === modal) { pendingFormId = null; modal.hidden = true; } });
+        })();
+        </script>
+        {% if pagination and pagination.total > 0 %}
+        {{ render_pagination(pagination, 'sales.index', info_text='ürün', tab='envanter', q=arama|default(''), urun_grubu=secili_urun_grubu or '', marka=secili_marka or '', model=secili_model or '') }}
+        {% endif %}
+        {% else %}
+        <p class="empty">{% if arama or secili_marka or secili_model %}Arama veya filtreye uygun ürün yok.{% else %}Henüz stok kaydı yok. "Stok ekle" ile ürün ekleyin.{% endif %}</p>
+        {% endif %}
+        {% endif %}
+
+        {% if aktif_tab == 'musteri_satis' %}
+        <h2>Firmaya gönderim geçmişi</h2>
+        <form method="get" class="search-form" style="margin-bottom:1rem;" id="musteri-satis-filter-form">
+            <input type="hidden" name="tab" value="musteri_satis">
+            <div class="form-grid-2">
+                <div class="form-group">
+                    <label for="tarih_baslangic">Başlangıç tarihi</label>
+                    <input type="date" id="tarih_baslangic" name="tarih_baslangic" value="{{ tarih_baslangic|default('') }}">
+                </div>
+                <div class="form-group">
+                    <label for="tarih_bitis">Bitiş tarihi</label>
+                    <input type="date" id="tarih_bitis" name="tarih_bitis" value="{{ tarih_bitis|default('') }}">
+                </div>
+            </div>
+            <div class="form-group">
+                <label for="musteri_ara">Firma adı</label>
+                <input type="text" id="musteri_ara" name="musteri_ara" value="{{ musteri_ara|default('') }}" placeholder="Firma adına göre filtrele" oninput="if(!this.value.trim())this.form.submit()">
+            </div>
+            <div class="form-actions" style="margin-top:0.5rem;">
+                <button type="submit" class="btn btn-primary">Filtrele</button>
+                <a href="{{ url_for('sales.index', tab='musteri_satis', page=1) }}" class="btn btn-outline">Filtreleri temizle</a>
+            </div>
+        </form>
+        <script>
+        (function () {
+            var form = document.getElementById('musteri-satis-filter-form');
+            if (!form) return;
+            var startInput = document.getElementById('tarih_baslangic');
+            var endInput = document.getElementById('tarih_bitis');
+
+            function syncBounds() {
+                if (!startInput || !endInput) return;
+                var s = (startInput.value || '').trim();
+                var e = (endInput.value || '').trim();
+                // Başlangıç seçildiyse, bitiş tarihinin minimumu bu tarih olsun.
+                if (s) {
+                    endInput.min = s;
+                } else {
+                    endInput.removeAttribute('min');
+                }
+                // Bitiş seçildiyse, başlangıcın maksimumu bu tarih olsun.
+                if (e) {
+                    startInput.max = e;
+                } else {
+                    startInput.removeAttribute('max');
+                }
+            }
+
+            function validateDates(evt) {
+                if (!startInput || !endInput) return true;
+                var s = (startInput.value || '').trim();
+                var e = (endInput.value || '').trim();
+                syncBounds();
+                if (s && e && s > e) {
+                    // HTML5 stilinde hata göstermek için customValidity kullan.
+                    startInput.setCustomValidity('Başlangıç tarihi, bitiş tarihinden sonra olamaz.');
+                    endInput.setCustomValidity('Bitiş tarihi, başlangıç tarihinden önce olamaz.');
+                    startInput.reportValidity();
+                    if (evt && evt.preventDefault) evt.preventDefault();
+                    return false;
+                }
+                startInput.setCustomValidity('');
+                endInput.setCustomValidity('');
+                return true;
+            }
+
+            form.addEventListener('submit', validateDates);
+            if (startInput) startInput.addEventListener('change', validateDates);
+            if (endInput) endInput.addEventListener('change', validateDates);
+            // Sayfa yüklendiğinde mevcut değerler için min/max sınırlarını kur.
+            syncBounds();
+        })();
+        </script>
+        {% if sale_pagination and sale_pagination.items %}
+        <div class="table-wrap">
+            <table class="data-table">
+                <thead>
+                    <tr>
+                        <th>Tarih</th>
+                        <th>Firma</th>
+                        <th>Telefon</th>
+                        <th>E-posta</th>
+                        <th>Detay</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for s in sale_pagination.items %}
+                    <tr>
+                        <td>{{ s.created_at.strftime('%d.%m.%Y %H:%M') }}</td>
+                        <td>
+                            {{ s.musteri_adi }}
+                            {% if s.customer and s.customer.yetkili_kisi %}<br><small>Yetkili: {{ s.customer.yetkili_kisi }}</small>{% endif %}
+                            <br><small>{{ s.customer.lokasyon_proje if s.customer and s.customer.lokasyon_proje else 'Lokasyon / proje yok' }}</small>
+                        </td>
+                        <td>{{ s.musteri_telefon or '—' }}</td>
+                        <td>{{ s.musteri_email or '—' }}</td>
+                        <td class="actions">
+                            <a href="{{ url_for('sales.gonderim_detay', id=s.id) }}" class="btn btn-sm">Detay</a>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        {{ render_pagination(sale_pagination, 'sales.index', info_text='kayıt', tab='musteri_satis', tarih_baslangic=tarih_baslangic|default(''), tarih_bitis=tarih_bitis|default(''), musteri_ara=musteri_ara|default('')) }}
+        {% else %}
+        <p class="empty">Henüz firmaya gönderim kaydı yok.</p>
+        {% endif %}
+        {% endif %}
+
+        {% if aktif_tab == 'teklif' %}
+        <h2>Teklif geçmişi</h2>
+        <form method="get" class="search-form" style="margin-bottom:1rem;" id="teklif-filter-form">
+            <input type="hidden" name="tab" value="teklif">
+            <div class="form-grid-2">
+                <div class="form-group">
+                    <label for="tkl_tarih_baslangic">Başlangıç tarihi</label>
+                    <input type="date" id="tkl_tarih_baslangic" name="tkl_tarih_baslangic" value="{{ tkl_tarih_baslangic|default('') }}">
+                </div>
+                <div class="form-group">
+                    <label for="tkl_tarih_bitis">Bitiş tarihi</label>
+                    <input type="date" id="tkl_tarih_bitis" name="tkl_tarih_bitis" value="{{ tkl_tarih_bitis|default('') }}">
+                </div>
+            </div>
+            <div class="form-group">
+                <label for="tkl_q">Teklif no, firma veya referans ara</label>
+                <input type="text" id="tkl_q" name="tkl_q" value="{{ tkl_ara|default('') }}" placeholder="Teklif no, firma adı, referans..." class="search-input" oninput="if(!this.value.trim())this.form.submit()">
+            </div>
+            <div class="form-actions" style="margin-top:0.5rem;">
+                <button type="submit" class="btn btn-primary">Filtrele</button>
+                <a href="{{ url_for('sales.index', tab='teklif', page=1) }}" class="btn btn-outline">Filtreleri temizle</a>
+            </div>
+        </form>
+        {% if teklif_pagination and teklif_pagination.items %}
+        <div class="table-wrap">
+            <table class="data-table">
+                <thead>
+                    <tr>
+                        <th>Teklif no</th>
+                        <th>Teklif tarihi</th>
+                        <th>Firma</th>
+                        <th>Yetkili</th>
+                        <th>Ürün</th>
+                        <th>Toplam</th>
+                        <th>Hazırlayan</th>
+                        <th>İşlem</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for t in teklif_pagination.items %}
+                    <tr>
+                        <td>{{ t.teklif_no }}</td>
+                        <td>{{ t.teklif_tarihi.strftime('%d.%m.%Y') if t.teklif_tarihi else '-' }}</td>
+                        <td>{{ t.firma_adi }}</td>
+                        <td>{{ t.yetkilisi or '-' }}</td>
+                        <td>{% set k_count = t.kalemler|length %}{% if k_count > 0 %}{{ k_count }} ürün{% elif t.urun_marka or t.urun_model %}{{ (t.urun_marka or '') }} {{ (t.urun_model or '') }}{% else %}-{% endif %}</td>
+                        <td>{{ t.toplam_ozet_metin }}</td>
+                        <td>{{ t.hazirlayan.username if t.hazirlayan else '-' }}</td>
+                        <td class="actions">
+                            <a href="{{ url_for('sales.teklif_detay', teklif_no=t.teklif_no) }}" class="btn btn-sm">Detay</a>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        {{ render_pagination(teklif_pagination, 'sales.index', info_text='teklif', tab='teklif', tkl_tarih_baslangic=tkl_tarih_baslangic|default(''), tkl_tarih_bitis=tkl_tarih_bitis|default(''), tkl_q=tkl_ara|default('')) }}
+        {% else %}
+        <p class="empty">{% if tkl_ara or tkl_tarih_baslangic or tkl_tarih_bitis %}Filtreye uygun teklif bulunamadı.{% else %}Henüz teklif kaydı yok. "Teklif ver" ile yeni teklif oluşturabilirsiniz.{% endif %}</p>
+        {% endif %}
+        {% endif %}
+
+        {% if aktif_tab == 'istatistik' %}
+        <h2>Satış istatistikleri</h2>
+        <form method="get" class="search-form" style="margin-bottom:1rem;">
+            <input type="hidden" name="tab" value="istatistik">
+            <div class="form-grid-2">
+                <div class="form-group">
+                    <label for="ist_tarih_baslangic">Başlangıç tarihi</label>
+                    <input type="date" id="ist_tarih_baslangic" name="ist_baslangic" value="{{ ist_tarih_baslangic|default('') }}">
+                </div>
+                <div class="form-group">
+                    <label for="ist_tarih_bitis">Bitiş tarihi</label>
+                    <input type="date" id="ist_tarih_bitis" name="ist_bitis" value="{{ ist_tarih_bitis|default('') }}">
+                </div>
+            </div>
+            <div class="form-actions" style="margin-top:0.5rem;">
+                <button type="submit" class="btn btn-primary">Filtrele</button>
+                <a href="{{ url_for('sales.index', tab='istatistik') }}" class="btn btn-outline">Filtreleri temizle</a>
+            </div>
+        </form>
+
+        <div class="stats-grid">
+            <div class="stat-card">
+                <div class="stat-label">Toplam gönderim</div>
+                <div class="stat-value">{{ stats.total_shipments }}</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-label">Toplam gönderilen ürün</div>
+                <div class="stat-value">{{ stats.total_quantity }}</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-label">Toplam firma</div>
+                <div class="stat-value">{{ stats.total_customers }}</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-label">Satış / Kiralama</div>
+                <div class="stat-value">{{ stats.total_sales }} / {{ stats.total_rentals }}</div>
+            </div>
+        </div>
+
+        <h2 class="form-section-title">Depo Stok Grafikleri</h2>
+        <div class="stats-charts admin-chart-row stats-charts-3col">
+            <div class="stats-chart-item">
+                <h3>Depoda en çok stoğu bulunan markalar</h3>
+                <canvas id="chart-sales-stock-by-marka" height="140"></canvas>
+            </div>
+            <div class="stats-chart-item">
+                <h3>Depo stok dağılımı (ürün grubu)</h3>
+                <canvas id="chart-sales-stock-by-group" height="140"></canvas>
+            </div>
+            <div class="stats-chart-item">
+                <h3>Depoda en çok stoğu bulunan modeller</h3>
+                <canvas id="chart-sales-stock-by-model" height="140"></canvas>
+            </div>
+        </div>
+
+        <h2 class="form-section-title">Satış Grafikleri</h2>
+        <div class="stats-charts admin-chart-row stats-charts-3col">
+            <div class="stats-chart-item">
+                <h3>Satış durumu (işlem türü)</h3>
+                <canvas id="chart-sales-by-type" height="140"></canvas>
+            </div>
+            <div class="stats-chart-item">
+                <h3>En çok satılan markalar</h3>
+                <canvas id="chart-sales-top-brands" height="140"></canvas>
+            </div>
+            <div class="stats-chart-item">
+                <h3>En çok satılan ürün grupları</h3>
+                <canvas id="chart-sales-top-groups" height="140"></canvas>
+            </div>
+            <div class="stats-chart-item">
+                <h3>En çok satılan modeller</h3>
+                <canvas id="chart-sales-top-models" height="140"></canvas>
+            </div>
+            <div class="stats-chart-item">
+                <h3>En çok satış yapılan firmalar</h3>
+                <canvas id="chart-sales-top-customers" height="140"></canvas>
+            </div>
+            <div class="stats-chart-item">
+                <h3>En çok satış yapılan günler</h3>
+                <canvas id="chart-sales-top-days" height="140"></canvas>
+            </div>
+            <div class="stats-chart-item">
+                <h3>En çok satış yapılan aylar</h3>
+                <canvas id="chart-sales-top-months" height="140"></canvas>
+            </div>
+            <div class="stats-chart-item">
+                <h3>Aylara göre satış</h3>
+                <canvas id="chart-sales-by-month" height="140"></canvas>
+            </div>
+        </div>
+
+        <h2 class="form-section-title">Teklif Grafikleri</h2>
+        <div class="stats-charts admin-chart-row stats-charts-3col">
+            <div class="stats-chart-item">
+                <h3>En çok teklif yapılan günler</h3>
+                <canvas id="chart-sales-teklif-top-days" height="140"></canvas>
+            </div>
+            <div class="stats-chart-item">
+                <h3>En çok teklif yapılan aylar</h3>
+                <canvas id="chart-sales-teklif-top-months" height="140"></canvas>
+            </div>
+            <div class="stats-chart-item">
+                <h3>En çok teklif yapılan firmalar</h3>
+                <canvas id="chart-sales-teklif-top-firmalar" height="140"></canvas>
+            </div>
+        </div>
+
+        <p class="empty" style="margin-top:2.5rem; text-align:center; font-size:0.85rem;">
+            İstatistikler seçilen tarih aralığındaki gönderimlere göre hesaplanmıştır. Depo stok grafikleri güncel stok durumunu gösterir.
+        </p>
+
+        <script id="sales-stock-by-group-json" type="application/json">{{ stock_by_group|tojson }}</script>
+        <script id="sales-stock-by-marka-json" type="application/json">{{ (stock_by_marka|default([]))|tojson }}</script>
+        <script id="sales-stock-by-model-json" type="application/json">{{ (stock_by_model|default([]))|tojson }}</script>
+        <script id="sales-type-counts-json" type="application/json">{{ sale_type_counts|tojson }}</script>
+        <script id="sales-stats-json" type="application/json">{{ sale_stats|tojson }}</script>
+        <script id="sales-teklif-stats-json" type="application/json">{{ (teklif_stats|default({}))|tojson }}</script>
+        <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+        <script>
+        (function () {
+            // Genel Chart.js varsayılanları (tema ile uyumlu)
+            if (window.Chart && Chart.defaults) {
+                Chart.defaults.font.family = '"system-ui", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif';
+                Chart.defaults.color = '#4b5563';
+                Chart.defaults.plugins.legend.position = 'bottom';
+                Chart.defaults.plugins.legend.labels.boxWidth = 10;
+                Chart.defaults.plugins.legend.labels.usePointStyle = true;
+            }
+
+            // Admin ile aynı grafikler – Depo Stok ve Satış
+            function loadJson(id, defaultVal) {
+                var def = defaultVal !== undefined ? defaultVal : {};
+                var el = document.getElementById(id);
+                if (!el) return def;
+                var raw = (el.textContent || '').trim();
+                if (!raw) return def;
+                try {
+                    var parsed = JSON.parse(raw);
+                    return parsed !== undefined && parsed !== null ? parsed : def;
+                } catch (e) { return def; }
+            }
+            var stockByGroup = loadJson('sales-stock-by-group-json');
+            var stockByMarka = loadJson('sales-stock-by-marka-json', []);
+            var stockByModel = loadJson('sales-stock-by-model-json', []);
+            var saleTypeCounts = loadJson('sales-type-counts-json');
+            var saleStats = loadJson('sales-stats-json');
+            var teklifStats = loadJson('sales-teklif-stats-json');
+
+            function makePieChart(ctxId, labels, dataArr, colors) {
+                var ctx = document.getElementById(ctxId);
+                if (!ctx || !window.Chart) return;
+                new Chart(ctx, {
+                    type: 'doughnut',
+                    data: {
+                        labels: labels,
+                        datasets: [{ data: dataArr, backgroundColor: colors, borderWidth: 0 }]
+                    },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        plugins: { legend: { position: 'bottom', labels: { usePointStyle: true } } },
+                        cutout: '55%'
+                    }
+                });
+            }
+
+            var barColors = ['#3b82f6', '#22c55e', '#f97316', '#6366f1', '#ec4899', '#14b8a6', '#e11d48', '#8b5cf6', '#0ea5e9', '#facc15'];
+            function makeAdminBarChart(ctxId, labels, values, label) {
+                var ctx = document.getElementById(ctxId);
+                if (!ctx || !window.Chart) return;
+                var colors = labels.map(function (_, i) { return barColors[i % barColors.length]; });
+                new Chart(ctx, {
+                    type: 'bar',
+                    data: {
+                        labels: labels,
+                        datasets: [{ label: label, data: values, backgroundColor: colors, borderRadius: 6, maxBarThickness: 28 }]
+                    },
+                    options: {
+                        indexAxis: 'y',
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        plugins: { legend: { display: false } },
+                        datasets: { bar: { barThickness: 'flex', categoryPercentage: 0.7, barPercentage: 0.85 } },
+                        scales: {
+                            x: { beginAtZero: true, ticks: { precision: 0 }, grid: { color: 'rgba(148,163,184,0.2)' } },
+                            y: { grid: { display: false }, ticks: { padding: 10 } }
+                        }
+                    }
+                });
+            }
+
+            // Depo stok – ürün grubu
+            var sgLabels = [], sgData = [];
+            Object.keys(stockByGroup || {}).forEach(function (k) {
+                var v = stockByGroup[k] || 0;
+                if (v > 0) { sgLabels.push(k); sgData.push(v); }
+            });
+            if (sgLabels.length) {
+                makePieChart('chart-sales-stock-by-group', sgLabels, sgData, ['#22c55e', '#0ea5e9', '#6366f1', '#f97316', '#e11d48', '#14b8a6']);
+            }
+
+            // Depo stok – marka
+            if (stockByMarka && stockByMarka.length) {
+                makeAdminBarChart('chart-sales-stock-by-marka', stockByMarka.map(function (r) { return r.marka; }), stockByMarka.map(function (r) { return r.toplam; }), 'Stok miktarı');
+            }
+
+            // Depo stok – model
+            if (Array.isArray(stockByModel) && stockByModel.length > 0) {
+                makeAdminBarChart('chart-sales-stock-by-model', stockByModel.map(function (r) { return (r && r.model) || ''; }), stockByModel.map(function (r) { return (r && r.toplam) || 0; }), 'Stok miktarı');
+            }
+
+            // Satış türü
+            var stLabelsMap = { 'satis': 'Satış', 'kiralama': 'Kiralama' };
+            var stLabels = [], stData = [], stColors = [];
+            var stColorMap = { 'satis': '#3b82f6', 'kiralama': '#facc15' };
+            Object.keys(stLabelsMap).forEach(function (k) {
+                var v = (saleTypeCounts || {})[k] || 0;
+                if (v > 0) { stLabels.push(stLabelsMap[k]); stData.push(v); stColors.push(stColorMap[k] || '#6b7280'); }
+            });
+            if (stLabels.length) {
+                makePieChart('chart-sales-by-type', stLabels, stData, stColors);
+            }
+
+            var sp = saleStats || {};
+            if (sp.top_brands && sp.top_brands.length) {
+                makeAdminBarChart('chart-sales-top-brands', sp.top_brands.map(function (r) { return r.marka; }), sp.top_brands.map(function (r) { return r.toplam; }), 'Satılan miktar');
+            }
+            if (sp.top_groups && sp.top_groups.length) {
+                var groupColors = ['#22c55e', '#0ea5e9', '#6366f1', '#f97316', '#e11d48', '#14b8a6', '#8b5cf6', '#ec4899'];
+                makePieChart('chart-sales-top-groups', sp.top_groups.map(function (r) { return r.urun_grubu; }), sp.top_groups.map(function (r) { return r.toplam; }), sp.top_groups.map(function (r, i) { return groupColors[i % groupColors.length]; }));
+            }
+            if (sp.top_models && sp.top_models.length) {
+                makeAdminBarChart('chart-sales-top-models', sp.top_models.map(function (r) { return r.model; }), sp.top_models.map(function (r) { return r.toplam; }), 'Satılan miktar');
+            }
+            if (sp.top_customers && sp.top_customers.length) {
+                makeAdminBarChart('chart-sales-top-customers', sp.top_customers.map(function (r) { return r.musteri_adi; }), sp.top_customers.map(function (r) { return r.gonderim_sayisi; }), 'Satış sayısı');
+            }
+            if (sp.top_days && sp.top_days.length) {
+                makeAdminBarChart('chart-sales-top-days', sp.top_days.map(function (r) { return r.gun; }), sp.top_days.map(function (r) { return r.toplam; }), 'Satılan miktar');
+            }
+            if (sp.top_months && sp.top_months.length) {
+                makeAdminBarChart('chart-sales-top-months', sp.top_months.map(function (r) { return r.ay; }), sp.top_months.map(function (r) { return r.toplam; }), 'Satılan miktar');
+            }
+            if (sp.sales_by_month && sp.sales_by_month.length) {
+                var ctx = document.getElementById('chart-sales-by-month');
+                if (ctx && window.Chart) {
+                    new Chart(ctx, {
+                        type: 'bar',
+                        data: {
+                            labels: sp.sales_by_month.map(function (r) { return r.ay; }),
+                            datasets: [{
+                                label: 'Satılan miktar',
+                                data: sp.sales_by_month.map(function (r) { return r.toplam; }),
+                                backgroundColor: 'rgba(59,130,246,0.7)',
+                                borderRadius: 6,
+                                maxBarThickness: 36,
+                            }],
+                        },
+                        options: {
+                            responsive: true,
+                            maintainAspectRatio: false,
+                            plugins: { legend: { display: false } },
+                            scales: {
+                                x: {
+                                    grid: { display: false },
+                                    ticks: { maxRotation: 45, minRotation: 45 },
+                                },
+                                y: {
+                                    beginAtZero: true,
+                                    ticks: { precision: 0 },
+                                    grid: { color: 'rgba(148,163,184,0.2)' },
+                                },
+                            },
+                        },
+                    });
+                }
+            }
+
+            // Teklif grafikleri
+            var tp = teklifStats || {};
+            if (tp.teklif_top_days && tp.teklif_top_days.length) {
+                makeAdminBarChart('chart-sales-teklif-top-days', tp.teklif_top_days.map(function (r) { return r.gun; }), tp.teklif_top_days.map(function (r) { return r.toplam; }), 'Teklif sayısı');
+            }
+            if (tp.teklif_top_months && tp.teklif_top_months.length) {
+                makeAdminBarChart('chart-sales-teklif-top-months', tp.teklif_top_months.map(function (r) { return r.ay; }), tp.teklif_top_months.map(function (r) { return r.toplam; }), 'Teklif sayısı');
+            }
+            if (tp.teklif_top_firmalar && tp.teklif_top_firmalar.length) {
+                makeAdminBarChart('chart-sales-teklif-top-firmalar', tp.teklif_top_firmalar.map(function (r) { return r.firma_adi; }), tp.teklif_top_firmalar.map(function (r) { return r.toplam; }), 'Teklif sayısı');
+            }
+
+            // İstatistik tarihleri için de min/max senkronizasyonu
+            (function () {
+                var s = document.getElementById('ist_tarih_baslangic');
+                var e = document.getElementById('ist_tarih_bitis');
+                if (!s || !e) return;
+                function sync() {
+                    var sv = (s.value || '').trim();
+                    var ev = (e.value || '').trim();
+                    if (sv) e.min = sv; else e.removeAttribute('min');
+                    if (ev) s.max = ev; else s.removeAttribute('max');
+                }
+                s.addEventListener('change', sync);
+                e.addEventListener('change', sync);
+                sync();
+            })();
+        })();
+        </script>
+        {% endif %}
+    </div>
+</div>
+{% endblock %}

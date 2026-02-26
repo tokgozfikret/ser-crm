@@ -1,0 +1,605 @@
+{% extends "base.html" %}
+{% block title %}Admin Paneli - SER-CRM{% endblock %}
+{% block content %}
+<div class="container page admin-index">
+    <div class="page-header">
+        <h1>Admin Paneli</h1>
+    </div>
+
+    <div class="form-actions" style="margin-bottom:1.5rem;">
+        <a href="{{ url_for('secretary.index') }}" class="btn btn-outline">Sekreterlik Paneli</a>
+        <a href="{{ url_for('technical.index') }}" class="btn btn-outline">Teknik Servis Paneli</a>
+        <a href="{{ url_for('sales.index') }}" class="btn btn-outline">Satış Paneli</a>
+        <a href="{{ url_for('admin.musteriler') }}" class="btn btn-outline">Firma Yönetimi</a>
+        <a href="{{ url_for('admin.users') }}" class="btn btn-outline">Kullanıcı Yönetimi</a>
+        <a href="{{ url_for('admin.mail_settings') }}" class="btn btn-outline">Mail Ayarları</a>
+    </div>
+
+    <form method="get" class="admin-tarih-filter-row" id="admin-tarih-filter-form">
+        <div class="form-group">
+            <label for="admin_tarih_baslangic">Başlangıç tarihi</label>
+            <input type="date" id="admin_tarih_baslangic" name="tarih_baslangic" value="{{ tarih_baslangic|default('') }}">
+        </div>
+        <div class="form-group">
+            <label for="admin_tarih_bitis">Bitiş tarihi</label>
+            <input type="date" id="admin_tarih_bitis" name="tarih_bitis" value="{{ tarih_bitis|default('') }}">
+        </div>
+        <div class="form-actions admin-filter-actions">
+            <button type="submit" class="btn btn-primary">Filtrele</button>
+            <a href="{{ url_for('admin.index') }}" class="btn btn-outline">Filtreleri temizle</a>
+        </div>
+    </form>
+    <script>
+    (function () {
+        var form = document.getElementById('admin-tarih-filter-form');
+        if (!form) return;
+        var startInput = document.getElementById('admin_tarih_baslangic');
+        var endInput = document.getElementById('admin_tarih_bitis');
+
+        function syncBounds() {
+            if (!startInput || !endInput) return;
+            var s = (startInput.value || '').trim();
+            var e = (endInput.value || '').trim();
+            if (s) endInput.min = s; else endInput.removeAttribute('min');
+            if (e) startInput.max = e; else startInput.removeAttribute('max');
+        }
+
+        function validateDates(evt) {
+            if (!startInput || !endInput) return true;
+            var s = (startInput.value || '').trim();
+            var e = (endInput.value || '').trim();
+            syncBounds();
+            if (s && e && s > e) {
+                startInput.setCustomValidity('Başlangıç tarihi, bitiş tarihinden sonra olamaz.');
+                endInput.setCustomValidity('Bitiş tarihi, başlangıç tarihinden önce olamaz.');
+                startInput.reportValidity();
+                if (evt && evt.preventDefault) evt.preventDefault();
+                return false;
+            }
+            startInput.setCustomValidity('');
+            endInput.setCustomValidity('');
+            return true;
+        }
+
+        form.addEventListener('submit', validateDates);
+        if (startInput) startInput.addEventListener('change', function() { syncBounds(); validateDates(); });
+        if (endInput) endInput.addEventListener('change', function() { syncBounds(); validateDates(); });
+        syncBounds();
+    })();
+    </script>
+
+    <div class="stats-grid" style="margin-bottom:1.5rem;">
+        <div class="stat-card">
+            <div class="stat-label">Kullanıcı sayısı</div>
+            <div class="stat-value">{{ user_count }}</div>
+            <div class="text-muted" style="font-size:0.8rem; margin-top:0.25rem;">
+                Admin: {{ role_counts.get('admin', 0) }},
+                Sekreter: {{ role_counts.get('sekreter', 0) }},
+                Teknik: {{ role_counts.get('teknik', 0) }},
+                Satış: {{ role_counts.get('satis', 0) }}
+            </div>
+        </div>
+        <div class="stat-card">
+            <div class="stat-label">Toplam cihaz</div>
+            <div class="stat-value">{{ device_count }}</div>
+            <div class="text-muted" style="font-size:0.8rem; margin-top:0.25rem;">
+                Geldi: {{ waiting_devices }},
+                Teknikte: {{ technical_devices }},
+                Kargolanacak: {{ ready_to_ship_devices }},
+                Kargolandı: {{ shipped_devices }}
+            </div>
+        </div>
+        <div class="stat-card">
+            <div class="stat-label">Açık cihazlar</div>
+            <div class="stat-value">{{ open_devices }}</div>
+            <div class="text-muted" style="font-size:0.8rem; margin-top:0.25rem;">
+                (Kargolanmış olmayan tüm cihazlar)
+            </div>
+        </div>
+        <div class="stat-card">
+            <div class="stat-label">Satış / gönderim kayıtları</div>
+            <div class="stat-value">{{ sale_count }}</div>
+            <div class="text-muted" style="font-size:0.8rem; margin-top:0.25rem;">
+                Toplam adet: {{ total_quantity }}<br>
+                Farklı firma: {{ sales_customer_count }}<br>
+                {% if date_filter_active %}Seçili aralıkta: {{ recent_sales_count }} kayıt, {{ recent_sales_quantity }} adet{% else %}Son 30 günde: {{ recent_sales_count }} kayıt, {{ recent_sales_quantity }} adet{% endif %}
+            </div>
+        </div>
+        <div class="stat-card">
+            <div class="stat-label">Depo stok durumu</div>
+            <div class="stat-value">{{ stock_item_count }}</div>
+            <div class="text-muted" style="font-size:0.8rem; margin-top:0.25rem;">
+                Toplam stok miktarı: {{ stock_total_quantity }}
+            </div>
+        </div>
+    </div>
+
+    {% if date_filter_active %}
+    <p class="text-muted" style="font-size:0.85rem; margin-top:-0.5rem; margin-bottom:1rem;">
+        Cihaz ve satış istatistikleri seçilen tarih aralığına göre hesaplanmıştır.
+    </p>
+    {% endif %}
+
+    <h2 class="form-section-title">Depo Stok Grafikleri</h2>
+    <div class="stats-charts admin-chart-row stats-charts-3col">
+        <div class="stats-chart-item">
+            <h3>Depoda en çok stoğu bulunan markalar</h3>
+            <canvas id="chart-stock-by-marka" height="140"></canvas>
+        </div>
+        <div class="stats-chart-item">
+            <h3>Depo stok dağılımı (ürün grubu)</h3>
+            <canvas id="chart-stock-by-group" height="140"></canvas>
+        </div>
+        <div class="stats-chart-item">
+            <h3>Depoda en çok stoğu bulunan modeller</h3>
+            <canvas id="chart-stock-by-model" height="140"></canvas>
+        </div>
+    </div>
+
+    <h2 class="form-section-title">Satış Grafikleri</h2>
+    <div class="stats-charts admin-chart-row stats-charts-3col">
+        <div class="stats-chart-item">
+            <h3>Satış durumu (işlem türü)</h3>
+            <canvas id="chart-sales-by-type" height="140"></canvas>
+        </div>
+        <div class="stats-chart-item">
+            <h3>En çok satılan markalar</h3>
+            <canvas id="chart-admin-top-brands" height="140"></canvas>
+        </div>
+        <div class="stats-chart-item">
+            <h3>En çok satılan ürün grupları</h3>
+            <canvas id="chart-admin-top-groups" height="140"></canvas>
+        </div>
+        <div class="stats-chart-item">
+            <h3>En çok satılan modeller</h3>
+            <canvas id="chart-admin-top-models" height="140"></canvas>
+        </div>
+        <div class="stats-chart-item">
+            <h3>En çok satış yapılan firmalar</h3>
+            <canvas id="chart-admin-top-customers" height="140"></canvas>
+        </div>
+        <div class="stats-chart-item">
+            <h3>En çok satış yapılan günler</h3>
+            <canvas id="chart-admin-top-days" height="140"></canvas>
+        </div>
+        <div class="stats-chart-item">
+            <h3>En çok satış yapılan aylar</h3>
+            <canvas id="chart-admin-top-months" height="140"></canvas>
+        </div>
+        <div class="stats-chart-item">
+            <h3>Aylara göre satış</h3>
+            <canvas id="chart-admin-sales-by-month" height="140"></canvas>
+        </div>
+    </div>
+
+    <h2 class="form-section-title">Teklif Grafikleri</h2>
+    <div class="stats-charts admin-chart-row stats-charts-3col">
+        <div class="stats-chart-item">
+            <h3>En çok teklif yapılan günler</h3>
+            <canvas id="chart-teklif-top-days" height="140"></canvas>
+        </div>
+        <div class="stats-chart-item">
+            <h3>En çok teklif yapılan aylar</h3>
+            <canvas id="chart-teklif-top-months" height="140"></canvas>
+        </div>
+        <div class="stats-chart-item">
+            <h3>En çok teklif yapılan firmalar</h3>
+            <canvas id="chart-teklif-top-firmalar" height="140"></canvas>
+        </div>
+    </div>
+
+    <h2 class="form-section-title">Sekreterlik & Teknik Servis Panelleri</h2>
+    <div class="stats-charts admin-chart-row stats-charts-3col">
+        <div class="stats-chart-item">
+            <h3>Cihaz durumu dağılımı (Sekreterlik)</h3>
+            <canvas id="chart-devices-secretary" height="140"></canvas>
+        </div>
+        <div class="stats-chart-item">
+            <h3>Teknik akıştaki cihazlar</h3>
+            <canvas id="chart-devices-technical" height="140"></canvas>
+        </div>
+        <div class="stats-chart-item">
+            <h3>En çok tamir yapılan markalar</h3>
+            <canvas id="chart-tamir-by-marka" height="260"></canvas>
+        </div>
+        <div class="stats-chart-item">
+            <h3>En çok tamir yapılan modeller</h3>
+            <canvas id="chart-tamir-by-model" height="260"></canvas>
+        </div>
+        <div class="stats-chart-item">
+            <h3>Aylara göre tamir bakım sayısı</h3>
+            <canvas id="chart-tamir-by-month" height="260"></canvas>
+        </div>
+    </div>
+
+</div>
+
+<script id="admin-role-counts-json" type="application/json">{{ role_counts|tojson }}</script>
+<script id="admin-device-status-json" type="application/json">{{ device_status|tojson }}</script>
+<script id="admin-stock-by-group-json" type="application/json">{{ stock_by_group|tojson }}</script>
+<script id="admin-stock-by-marka-json" type="application/json">{{ (stock_by_marka|default([]))|tojson }}</script>
+<script id="admin-stock-by-model-json" type="application/json">{{ (stock_by_model|default([]))|tojson }}</script>
+<script id="admin-sale-type-counts-json" type="application/json">{{ sale_type_counts|tojson }}</script>
+<script id="admin-fault-status-json" type="application/json">{{ fault_status_counts|tojson }}</script>
+<script id="admin-sale-stats-json" type="application/json">{{ sale_stats|tojson }}</script>
+<script id="admin-tamir-stats-json" type="application/json">{{ (tamir_stats|default({}))|tojson }}</script>
+<script id="admin-teklif-stats-json" type="application/json">{{ (teklif_stats|default({}))|tojson }}</script>
+
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script>
+(function () {
+    'use strict';
+    function loadJson(id, defaultVal) {
+        var def = defaultVal !== undefined ? defaultVal : {};
+        var el = document.getElementById(id);
+        if (!el) return def;
+        var raw = (el.textContent || '').trim();
+        if (!raw) return def;
+        try {
+            var parsed = JSON.parse(raw);
+            return parsed !== undefined && parsed !== null ? parsed : def;
+        } catch (e) {
+            return def;
+        }
+    }
+
+    var roleCounts = loadJson('admin-role-counts-json');
+    var deviceStatus = loadJson('admin-device-status-json');
+    var stockByGroup = loadJson('admin-stock-by-group-json');
+    var stockByMarka = loadJson('admin-stock-by-marka-json', []);
+    var stockByModel = loadJson('admin-stock-by-model-json', []);
+    var saleTypeCounts = loadJson('admin-sale-type-counts-json');
+    var faultStatus = loadJson('admin-fault-status-json');
+    var saleStats = loadJson('admin-sale-stats-json');
+    var tamirStats = loadJson('admin-tamir-stats-json');
+    var teklifStats = loadJson('admin-teklif-stats-json');
+
+    function makePieChart(ctxId, labels, data, colors) {
+        var ctx = document.getElementById(ctxId);
+        if (!ctx || !window.Chart) return;
+        new Chart(ctx, {
+            type: 'doughnut',
+            data: {
+                labels: labels,
+                datasets: [{
+                    data: data,
+                    backgroundColor: colors,
+                    borderWidth: 0
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: {
+                        position: 'bottom',
+                        labels: { usePointStyle: true }
+                    }
+                },
+                cutout: '55%'
+            }
+        });
+    }
+
+    // Cihaz durumları – sekreterlik için tüm durumlar
+    var statusMap = {
+        'geldi': 'Geldi',
+        'teknik_serviste': 'Teknikte',
+        'arizalar_tamamlandi': 'Kargolanacak',
+        'kargolandı': 'Kargolandı'
+    };
+    var statusColors = {
+        'geldi': '#0ea5e9',
+        'teknik_serviste': '#f97316',
+        'arizalar_tamamlandi': '#22c55e',
+        'kargolandı': '#6366f1'
+    };
+
+    var secLabels = [];
+    var secData = [];
+    var secColorArr = [];
+    Object.keys(statusMap).forEach(function (key) {
+        var val = deviceStatus[key] || 0;
+        if (val > 0) {
+            secLabels.push(statusMap[key]);
+            secData.push(val);
+            secColorArr.push(statusColors[key] || '#6b7280');
+        }
+    });
+    if (secLabels.length) {
+        makePieChart('chart-devices-secretary', secLabels, secData, secColorArr);
+    }
+
+    // Teknik servis – arıza durumu dağılımı
+    var faultMap = {
+        'hic_girilmemis': 'Arızası hiç girilmemiş',
+        'girildi_yapilmamis': 'Arızası girilmiş / yapıldı işaretlenmemiş',
+        'tamam_teslim_bekliyor': 'Tüm arızalar tamamlandı, sekreterliğe bildirilmemiş',
+        'sekreterlikte': 'Arızalar tamamlandı (sekreterlikte)'
+    };
+    var faultColors = {
+        'hic_girilmemis': '#f97316',
+        'girildi_yapilmamis': '#e11d48',
+        'tamam_teslim_bekliyor': '#22c55e',
+        'sekreterlikte': '#6366f1'
+    };
+    var fLabels = [];
+    var fData = [];
+    var fColorArr = [];
+    Object.keys(faultMap).forEach(function (key) {
+        var val = (faultStatus && faultStatus[key]) || 0;
+        if (val > 0) {
+            fLabels.push(faultMap[key]);
+            fData.push(val);
+            fColorArr.push(faultColors[key] || '#6b7280');
+        }
+    });
+    if (fLabels.length) {
+        makePieChart('chart-devices-technical', fLabels, fData, fColorArr);
+    }
+
+    // Stok – ürün grubuna göre
+    var stockLabels = [];
+    var stockData = [];
+    Object.keys(stockByGroup || {}).forEach(function (k) {
+        var v = stockByGroup[k] || 0;
+        if (v > 0) {
+            stockLabels.push(k);
+            stockData.push(v);
+        }
+    });
+    if (stockLabels.length) {
+        makePieChart('chart-stock-by-group', stockLabels, stockData, [
+            '#22c55e', '#0ea5e9', '#6366f1', '#f97316', '#e11d48', '#14b8a6'
+        ]);
+    }
+
+    // Satış türü – satis / kiralama
+    var saleLabelsMap = { 'satis': 'Satış', 'kiralama': 'Kiralama' };
+    var saleLabels = [];
+    var saleData = [];
+    var saleColors = [];
+    var saleColorMap = { 'satis': '#3b82f6', 'kiralama': '#facc15' };
+    Object.keys(saleLabelsMap).forEach(function (k) {
+        var v = (saleTypeCounts || {})[k] || 0;
+        if (v > 0) {
+            saleLabels.push(saleLabelsMap[k]);
+            saleData.push(v);
+            saleColors.push(saleColorMap[k] || '#6b7280');
+        }
+    });
+    if (saleLabels.length) {
+        makePieChart('chart-sales-by-type', saleLabels, saleData, saleColors);
+    }
+
+    // Yatay çubuk grafikleri – renkli çubuklar
+    var barColors = ['#3b82f6', '#22c55e', '#f97316', '#6366f1', '#ec4899', '#14b8a6', '#e11d48', '#8b5cf6', '#0ea5e9', '#facc15'];
+    function makeBarChart(ctxId, labels, values, label) {
+        var ctx = document.getElementById(ctxId);
+        if (!ctx || !window.Chart) return;
+        var colors = labels.map(function (_, i) { return barColors[i % barColors.length]; });
+        new Chart(ctx, {
+            type: 'bar',
+            data: {
+                labels: labels,
+                datasets: [{
+                    label: label,
+                    data: values,
+                    backgroundColor: colors,
+                    borderRadius: 6,
+                    maxBarThickness: 28,
+                }],
+            },
+            options: {
+                indexAxis: 'y',
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: { display: false },
+                },
+                datasets: { bar: { barThickness: 'flex', categoryPercentage: 0.7, barPercentage: 0.85 } },
+                scales: {
+                    x: {
+                        beginAtZero: true,
+                        ticks: { precision: 0 },
+                        grid: { color: 'rgba(148,163,184,0.2)' },
+                    },
+                    y: {
+                        grid: { display: false },
+                        ticks: { padding: 10 },
+                    },
+                },
+            },
+        });
+    }
+
+    // Depoda en çok stoğu bulunan markalar
+    if (stockByMarka && stockByMarka.length) {
+        makeBarChart(
+            'chart-stock-by-marka',
+            stockByMarka.map(function (r) { return r.marka; }),
+            stockByMarka.map(function (r) { return r.toplam; }),
+            'Stok miktarı'
+        );
+    }
+
+    // Depoda en çok stoğu bulunan modeller
+    if (Array.isArray(stockByModel) && stockByModel.length > 0) {
+        makeBarChart(
+            'chart-stock-by-model',
+            stockByModel.map(function (r) { return (r && r.model) || ''; }),
+            stockByModel.map(function (r) { return (r && r.toplam) || 0; }),
+            'Stok miktarı'
+        );
+    }
+
+    var sp = saleStats || {};
+    if (sp.top_brands && sp.top_brands.length) {
+        makeBarChart(
+            'chart-admin-top-brands',
+            sp.top_brands.map(function (r) { return r.marka; }),
+            sp.top_brands.map(function (r) { return r.toplam; }),
+            'Satılan miktar'
+        );
+    }
+    // En çok satılan ürün grupları – donut grafik
+    if (sp.top_groups && sp.top_groups.length) {
+        var groupColors = ['#22c55e', '#0ea5e9', '#6366f1', '#f97316', '#e11d48', '#14b8a6', '#8b5cf6', '#ec4899'];
+        makePieChart(
+            'chart-admin-top-groups',
+            sp.top_groups.map(function (r) { return r.urun_grubu; }),
+            sp.top_groups.map(function (r) { return r.toplam; }),
+            sp.top_groups.map(function (r, i) { return groupColors[i % groupColors.length]; })
+        );
+    }
+    if (sp.top_models && sp.top_models.length) {
+        makeBarChart(
+            'chart-admin-top-models',
+            sp.top_models.map(function (r) { return r.model; }),
+            sp.top_models.map(function (r) { return r.toplam; }),
+            'Satılan miktar'
+        );
+    }
+    if (sp.top_customers && sp.top_customers.length) {
+        makeBarChart(
+            'chart-admin-top-customers',
+            sp.top_customers.map(function (r) { return r.musteri_adi; }),
+            sp.top_customers.map(function (r) { return r.gonderim_sayisi; }),
+            'Satış sayısı'
+        );
+    }
+    if (sp.top_days && sp.top_days.length) {
+        makeBarChart(
+            'chart-admin-top-days',
+            sp.top_days.map(function (r) { return r.gun; }),
+            sp.top_days.map(function (r) { return r.toplam; }),
+            'Satılan miktar'
+        );
+    }
+    if (sp.top_months && sp.top_months.length) {
+        makeBarChart(
+            'chart-admin-top-months',
+            sp.top_months.map(function (r) { return r.ay; }),
+            sp.top_months.map(function (r) { return r.toplam; }),
+            'Satılan miktar'
+        );
+    }
+    if (sp.sales_by_month && sp.sales_by_month.length) {
+        var ctx = document.getElementById('chart-admin-sales-by-month');
+        if (ctx && window.Chart) {
+            new Chart(ctx, {
+                type: 'bar',
+                data: {
+                    labels: sp.sales_by_month.map(function (r) { return r.ay; }),
+                    datasets: [{
+                        label: 'Satılan miktar',
+                        data: sp.sales_by_month.map(function (r) { return r.toplam; }),
+                        backgroundColor: 'rgba(59,130,246,0.7)',
+                        borderRadius: 6,
+                        maxBarThickness: 36,
+                    }],
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: { legend: { display: false } },
+                    scales: {
+                        x: {
+                            grid: { display: false },
+                            ticks: { maxRotation: 45, minRotation: 45 },
+                        },
+                        y: {
+                            beginAtZero: true,
+                            ticks: { precision: 0 },
+                            grid: { color: 'rgba(148,163,184,0.2)' },
+                        },
+                    },
+                },
+            });
+        }
+    }
+
+    // Teklif grafikleri
+    var tp = teklifStats || {};
+    if (tp.teklif_top_days && tp.teklif_top_days.length) {
+        makeBarChart(
+            'chart-teklif-top-days',
+            tp.teklif_top_days.map(function (r) { return r.gun; }),
+            tp.teklif_top_days.map(function (r) { return r.toplam; }),
+            'Teklif sayısı'
+        );
+    }
+    if (tp.teklif_top_months && tp.teklif_top_months.length) {
+        makeBarChart(
+            'chart-teklif-top-months',
+            tp.teklif_top_months.map(function (r) { return r.ay; }),
+            tp.teklif_top_months.map(function (r) { return r.toplam; }),
+            'Teklif sayısı'
+        );
+    }
+    if (tp.teklif_top_firmalar && tp.teklif_top_firmalar.length) {
+        makeBarChart(
+            'chart-teklif-top-firmalar',
+            tp.teklif_top_firmalar.map(function (r) { return r.firma_adi; }),
+            tp.teklif_top_firmalar.map(function (r) { return r.toplam; }),
+            'Teklif sayısı'
+        );
+    }
+
+    // Teknik servis – tamir grafikleri
+    var ts = tamirStats || {};
+    if (ts.tamir_by_marka && ts.tamir_by_marka.length) {
+        makeBarChart(
+            'chart-tamir-by-marka',
+            ts.tamir_by_marka.map(function (r) { return r.marka; }),
+            ts.tamir_by_marka.map(function (r) { return r.toplam; }),
+            'Tamir sayısı'
+        );
+    }
+    if (ts.tamir_by_model && ts.tamir_by_model.length) {
+        makeBarChart(
+            'chart-tamir-by-model',
+            ts.tamir_by_model.map(function (r) { return r.model; }),
+            ts.tamir_by_model.map(function (r) { return r.toplam; }),
+            'Tamir sayısı'
+        );
+    }
+    if (ts.tamir_by_month && ts.tamir_by_month.length) {
+        var ctxTamir = document.getElementById('chart-tamir-by-month');
+        if (ctxTamir && window.Chart) {
+            new Chart(ctxTamir, {
+                type: 'bar',
+                data: {
+                    labels: ts.tamir_by_month.map(function (r) { return r.ay; }),
+                    datasets: [{
+                        label: 'Tamir bakım sayısı',
+                        data: ts.tamir_by_month.map(function (r) { return r.toplam; }),
+                        backgroundColor: 'rgba(34,197,94,0.7)',
+                        borderRadius: 6,
+                        maxBarThickness: 36,
+                    }],
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: { legend: { display: false } },
+                    scales: {
+                        x: {
+                            grid: { display: false },
+                            ticks: { maxRotation: 45, minRotation: 45 },
+                        },
+                        y: {
+                            beginAtZero: true,
+                            ticks: { precision: 0 },
+                            grid: { color: 'rgba(148,163,184,0.2)' },
+                        },
+                    },
+                },
+            });
+        }
+    }
+})();
+</script>
+
+{% endblock %}
+

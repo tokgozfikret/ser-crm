@@ -1,0 +1,28 @@
+{% extends "base.html" %}
+{% block title %}Müşteri Paneli - SER-CRM{% endblock %}
+{% block content %}
+<div class="login-page">
+    <div class="login-box">
+        <img src="{{ url_for('static', filename='images/musteri_panel_logo.png') }}" alt="SER" class="login-logo" style="max-width:100%; height:auto; margin-bottom:1.25rem;">
+        <h1>Müşteri Paneli</h1>
+        <p class="text-muted" style="font-size:0.9rem; margin-bottom:1.25rem; text-align:center;">
+            Cihazlarınızın durumunu takip etmek için e-posta ve telefon bilgilerinizi girin.
+        </p>
+        <form method="post" action="{{ url_for('musteri_panel.giris_post') }}" class="login-form form-modern">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+            <div class="form-group">
+                <label for="email">E-posta adresi *</label>
+                <input type="email" id="email" name="email" required autofocus placeholder="ornek@email.com">
+            </div>
+            <div class="form-group">
+                <label for="telefon">Telefon numarası *</label>
+                <input type="text" id="telefon" name="telefon" required placeholder="05xx xxx xx xx">
+                <div class="alert alert-info" style="margin-top:0.5rem; font-size:0.85rem;">
+                    Telefon numaranızı <strong>cihaz kaydı sırasında girdiğiniz formatta</strong> girin. Örnek: <code>0555 123 45 67</code> veya <code>05551234567</code>
+                </div>
+            </div>
+            <button type="submit" class="btn btn-primary btn-block">Cihazlarımı Görüntüle</button>
+        </form>
+    </div>
+</div>
+{% endblock %}

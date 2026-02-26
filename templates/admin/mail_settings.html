@@ -1,0 +1,52 @@
+{% extends "base.html" %}
+{% block title %}Mail Ayarları - Admin Paneli{% endblock %}
+{% block content %}
+<div class="container page">
+    <div class="page-header">
+        <h1>Mail Ayarları</h1>
+        <p class="text-muted">Şifremi unuttum e-postaları için SMTP sunucu ayarları.</p>
+    </div>
+
+    <div class="form-actions" style="margin-bottom:1.5rem;">
+        <a href="{{ url_for('admin.index') }}" class="btn btn-outline">Admin Paneli</a>
+        <a href="{{ url_for('admin.users') }}" class="btn btn-outline">Kullanıcı Yönetimi</a>
+    </div>
+
+    <div class="card">
+        <form method="post" action="{{ url_for('admin.mail_settings') }}" class="form-modern">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+            <div class="form-group">
+                <label for="smtp_host">SMTP Sunucu (Host)</label>
+                <input type="text" id="smtp_host" name="smtp_host" value="{{ cfg.smtp_host or '' }}" placeholder="smtp.gmail.com">
+            </div>
+            <div class="form-group">
+                <label for="smtp_port">SMTP Port</label>
+                <input type="number" id="smtp_port" name="smtp_port" value="{{ cfg.smtp_port or 587 }}" placeholder="587" min="1" max="65535">
+                <span class="text-muted" style="font-size:0.85rem;">Genelde 587 (TLS) veya 465 (SSL)</span>
+            </div>
+            <div class="form-group">
+                <label for="smtp_username">SMTP Kullanıcı adı</label>
+                <input type="text" id="smtp_username" name="smtp_username" value="{{ cfg.smtp_username or '' }}" placeholder="mail@firma.com" autocomplete="username">
+            </div>
+            <div class="form-group">
+                <label for="smtp_password">SMTP Şifre</label>
+                <input type="password" id="smtp_password" name="smtp_password" placeholder="Değiştirmek için yeni şifre girin" autocomplete="new-password">
+                <span class="text-muted" style="font-size:0.85rem;">Mevcut şifreyi korumak için boş bırakın</span>
+            </div>
+            <div class="form-group">
+                <label for="from_email">Gönderen e-posta (From)</label>
+                <input type="email" id="from_email" name="from_email" value="{{ cfg.from_email or '' }}" placeholder="noreply@firma.com">
+            </div>
+            <div class="form-group">
+                <label>
+                    <input type="checkbox" name="use_tls" value="1" {% if cfg.use_tls %}checked{% endif %}>
+                    TLS kullan (STARTTLS)
+                </label>
+            </div>
+            <div class="form-actions">
+                <button type="submit" class="btn btn-primary">Kaydet</button>
+            </div>
+        </form>
+    </div>
+</div>
+{% endblock %}

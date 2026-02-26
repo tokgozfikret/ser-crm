@@ -1,0 +1,71 @@
+{% extends "base.html" %}
+{% block title %}Cihaz #{{ cihaz.id }} - Müşteri Paneli{% endblock %}
+{% block content %}
+<div class="container page">
+    <div class="page-header">
+        <h1>Müşteri Paneli</h1>
+        <div class="header-actions">
+            <a href="{{ url_for('musteri_panel.cihazlar') }}" class="btn btn-outline">← Cihaz listesine dön</a>
+        </div>
+    </div>
+    <div class="card">
+        <div class="detail-header-row">
+            <h2 class="detail-title">
+                <span class="detail-title-main">{{ cihaz.cihaz_bilgisi or (cihaz.cihaz_marka or '') ~ ' ' ~ (cihaz.cihaz_model or '') }}</span>
+                <span class="pill pill-muted">Cihaz #{{ cihaz.id }}</span>
+            </h2>
+            <span class="pill pill-{{ 'info' if cihaz.durum == 'geldi' else 'warning' if cihaz.durum in ('teknik_serviste', 'teknik_serviste_tamir', 'on_inceleme_sekreterlikte') else 'onay-bekliyor' if cihaz.durum == 'musteri_onay_bekliyor' else 'success' if cihaz.durum in ('arizalar_tamamlandi', 'musteri_onayladi', 'kargolandı') else 'danger' if cihaz.durum == 'musteri_onaylamadi' else 'muted' }}">
+                {{ cihaz.DURUMLAR.get(cihaz.durum, cihaz.durum) }}
+            </span>
+        </div>
+
+        <div class="detail-grid">
+            <section class="detail-section">
+                <h3>Cihaz bilgileri</h3>
+                <table class="detail-table">
+                    <tr><th>Marka</th><td>{{ cihaz.cihaz_marka or cihaz.cihaz_bilgisi or '-' }}</td></tr>
+                    <tr><th>Model</th><td>{{ cihaz.cihaz_model or '-' }}</td></tr>
+                    <tr><th>Seri numarası</th><td>{{ cihaz.seri_no or '-' }}</td></tr>
+                    {% if cihaz.aciklama %}
+                    <tr><th>Açıklama / Şikayet</th><td>{{ cihaz.aciklama }}</td></tr>
+                    {% endif %}
+                </table>
+            </section>
+        </div>
+        {% include 'includes/surec_tarihleri.html' %}
+
+        {% if arizalar %}
+        <h3 class="form-section-title">Ön inceleme bulguları / Arızalar</h3>
+        <ul class="fault-list">
+            {% for f in arizalar %}
+            <li>
+                {{ f.aciklama }}
+                {% if f.fiyat is not none %}<span class="fault-fiyat">– {{ "%.2f"|format(f.fiyat|float) }} ₺</span>{% endif %}
+                <span class="badge {{ 'badge-success' if f.yapildi else 'badge-warning' }}">{{ 'Yapıldı' if f.yapildi else 'Bekliyor' }}</span>
+            </li>
+            {% endfor %}
+        </ul>
+{% if cihaz.on_inceleme_toplam_str %}
+        <p class="form-hint" style="margin-top:0.75rem;"><strong>Toplam tahmini fiyat:</strong> {{ cihaz.on_inceleme_toplam_str }}</p>
+        {% endif %}
+        {% endif %}
+{% if not arizalar and cihaz.on_inceleme_toplam_str %}
+        <p class="form-hint" style="margin-top:1rem;"><strong>Tahmini fiyat:</strong> {{ cihaz.on_inceleme_toplam_str }}</p>
+        {% endif %}
+
+        {% if cihaz.durum == 'musteri_onay_bekliyor' %}
+        <div class="alert alert-info" style="margin-top:1.5rem;">
+            <p><strong>Ön inceleme raporunuz onay bekliyor.</strong> Yukarıdaki bulguları inceledikten sonra onaylayabilir veya reddedebilirsiniz. Onaylarsanız teknik servis tamir işlemine geçecektir. Reddederseniz cihazınız işlem yapılmadan size iade edilecektir.</p>
+            <form method="post" action="{{ url_for('musteri_panel.cihaz_onayla', cihaz_id=cihaz.id) }}" style="display:inline;">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                <button type="submit" class="btn btn-success">Onaylıyorum</button>
+            </form>
+            <form method="post" action="{{ url_for('musteri_panel.cihaz_reddet', cihaz_id=cihaz.id) }}" style="display:inline;">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                <button type="submit" class="btn btn-outline">Reddediyorum</button>
+            </form>
+        </div>
+        {% endif %}
+    </div>
+</div>
+{% endblock %}

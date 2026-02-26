@@ -1,0 +1,56 @@
+{% extends "base.html" %}
+{% block title %}Kayıt Ol - SER-CRM © 2026{% endblock %}
+{% block content %}
+<div class="login-page">
+    <div class="login-box">
+        <h1>SER-CRM © 2026</h1>
+        <p class="subtitle">Yeni kullanıcı kaydı</p>
+        <form method="post" action="{{ url_for('auth.register') }}" class="login-form form-modern">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+            <div class="form-row-2">
+                <div class="form-group">
+                    <label for="first_name">Ad</label>
+                    <input type="text" id="first_name" name="first_name" value="{{ request.form.first_name or '' }}" required placeholder="örn: Ali">
+                </div>
+                <div class="form-group">
+                    <label for="last_name">Soyad</label>
+                    <input type="text" id="last_name" name="last_name" value="{{ request.form.last_name or '' }}" required placeholder="örn: Yılmaz">
+                </div>
+            </div>
+            <div class="form-group">
+                <label for="username">Kullanıcı adı</label>
+                <input type="text" id="username" name="username" value="{{ request.form.username or '' }}" required autofocus>
+            </div>
+            <div class="form-row-2">
+                <div class="form-group">
+                    <label for="phone">Telefon</label>
+                    <input type="text" id="phone" name="phone" value="{{ request.form.phone or '' }}" required placeholder="örn: 05xx xxx xx xx">
+                </div>
+                <div class="form-group">
+                    <label for="email">E-posta</label>
+                    <input type="email" id="email" name="email" value="{{ request.form.email or '' }}" required placeholder="örn: ali@example.com">
+                </div>
+            </div>
+            <div class="form-group">
+                <label for="password">Şifre</label>
+                <input type="password" id="password" name="password" required>
+            </div>
+            <div class="form-group">
+                <label for="password2">Şifre (tekrar)</label>
+                <input type="password" id="password2" name="password2" required>
+            </div>
+            <div class="form-group">
+                <label for="role">Rol</label>
+                <select id="role" name="role" required>
+                    <option value="sekreter" {% if (request.form.role or '') == 'sekreter' %}selected{% endif %}>Sekreter</option>
+                    <option value="teknik" {% if (request.form.role or '') == 'teknik' %}selected{% endif %}>Teknik</option>
+                    <option value="satis" {% if (request.form.role or '') == 'satis' %}selected{% endif %}>Satış</option>
+                </select>
+            </div>
+            <button type="submit" class="btn btn-primary btn-block">Kayıt ol</button>
+        </form>
+        <a href="{{ url_for('auth.login') }}" class="btn btn-outline btn-block" style="margin-top:0.75rem;">Zaten hesabın var mı? Giriş yap</a>
+    </div>
+</div>
+{% endblock %}
+

@@ -1,0 +1,99 @@
+{% extends "base.html" %}
+{% block title %}{{ musteri.ad }} - Firma Detayı{% endblock %}
+{% block content %}
+<div class="container page">
+    <div class="page-header">
+        <h1>Firma Detayı</h1>
+        <div class="header-actions">
+            <a href="{{ url_for('admin.musteri_duzenle', id=musteri.id) }}" class="btn btn-primary">Düzenle</a>
+            <a href="{{ url_for('admin.musteriler') }}" class="btn btn-outline">← Firma listesine dön</a>
+        </div>
+    </div>
+
+    <div class="card" style="margin-bottom:1.5rem;">
+        <h2>{{ musteri.ad }}</h2>
+        <table class="detail-table">
+            <tr><th>Firma adı</th><td>{{ musteri.ad }}</td></tr>
+            <tr><th>Yetkili kişi</th><td>{{ musteri.yetkili_kisi or '-' }}</td></tr>
+            <tr><th>Telefon</th><td>{{ musteri.telefon or '-' }}</td></tr>
+            <tr><th>E-posta</th><td>{{ musteri.email or '-' }}</td></tr>
+            <tr><th>Adres</th><td>{{ musteri.adres or '-' }}</td></tr>
+            <tr><th>Lokasyon / Proje</th><td>{{ musteri.lokasyon_proje or '-' }}</td></tr>
+            {% if musteri.notlar %}
+            <tr><th>Notlar</th><td>{{ musteri.notlar }}</td></tr>
+            {% endif %}
+        </table>
+    </div>
+
+    <div class="card" style="margin-bottom:1.5rem;">
+        <h3>Tamir için gönderilen cihazlar ({{ cihazlar|length }} adet)</h3>
+        {% if cihazlar %}
+        <div class="table-wrap">
+            <table class="data-table">
+                <thead>
+                    <tr>
+                        <th>#</th>
+                        <th>Cihaz</th>
+                        <th>Seri no</th>
+                        <th>Durum</th>
+                        <th>Giriş tarihi</th>
+                        <th>İşlem</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for c in cihazlar %}
+                    <tr>
+                        <td>{{ c.id }}</td>
+                        <td>{{ (c.cihaz_marka or c.cihaz_bilgisi)[:50] }}{% if (c.cihaz_marka or c.cihaz_bilgisi)|length > 50 %}...{% endif %}</td>
+                        <td>{{ c.seri_no or '-' }}</td>
+                        <td><span class="badge badge-{{ c.durum }}">{{ c.DURUMLAR.get(c.durum, c.durum) }}</span></td>
+                        <td>{{ c.created_at.strftime('%d.%m.%Y %H:%M') if c.created_at else '-' }}</td>
+                        <td>
+                            <a href="{{ url_for('secretary.cihaz_detay', id=c.id) }}" class="btn btn-sm">Sekreterlikte gör</a>
+                            <a href="{{ url_for('technical.cihaz_detay', id=c.id) }}" class="btn btn-sm">Teknikte gör</a>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        {% else %}
+        <p class="empty">Bu firmaya ait tamir cihazı kaydı yok.</p>
+        {% endif %}
+    </div>
+
+    <div class="card">
+        <h3>Satılan / kiralanan cihazlar ({{ satislar|length }} kayıt)</h3>
+        {% if satislar %}
+        <div class="table-wrap">
+            <table class="data-table">
+                <thead>
+                    <tr>
+                        <th>#</th>
+                        <th>Ürün</th>
+                        <th>Marka / Model</th>
+                        <th>Tür</th>
+                        <th>Miktar</th>
+                        <th>Tarih</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for s in satislar %}
+                    <tr>
+                        <td>{{ s.id }}</td>
+                        <td>{{ s.inventory.urun_adi if s.inventory else '-' }}</td>
+                        <td>{% if s.inventory %}{{ (s.inventory.marka or '') }} {{ (s.inventory.model or '') }}{% else %}-{% endif %}</td>
+                        <td><span class="badge {{ 'badge-success' if s.tur == 'satis' else 'badge-info' }}">{{ 'Satış' if s.tur == 'satis' else 'Kiralama' }}</span></td>
+                        <td>{{ s.miktar }}</td>
+                        <td>{{ s.created_at.strftime('%d.%m.%Y %H:%M') if s.created_at else '-' }}</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        {% else %}
+        <p class="empty">Bu firmaya ait satış/kiralama kaydı yok.</p>
+        {% endif %}
+    </div>
+</div>
+{% endblock %}

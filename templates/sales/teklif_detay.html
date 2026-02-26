@@ -1,0 +1,117 @@
+{% extends "base.html" %}
+{% block title %}Teklif {{ teklif.teklif_no }} - Satış{% endblock %}
+{% block content %}
+<div class="container page">
+    <div class="page-header" style="display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:0.75rem;">
+        <h1 style="margin:0;">Teklif {{ teklif.teklif_no }}</h1>
+        <div style="display:flex; gap:0.5rem; flex-wrap:wrap;">
+            <a href="{{ url_for('sales.teklif_pdf', teklif_no=teklif.teklif_no) }}" class="btn btn-outline" download>📄 PDF indir</a>
+            <button type="button" class="btn btn-outline" data-teklif-email-btn>✉ E-posta ile gönder</button>
+            <a href="{{ url_for('sales.index', tab='teklif') }}" class="btn btn-outline">← Teklif geçmişine dön</a>
+        </div>
+    </div>
+    <div id="teklif-email-modal" style="display:none; position:fixed; inset:0; background:rgba(0,0,0,0.4); z-index:1000; align-items:center; justify-content:center; padding:1rem;">
+        <div style="background:#fff; border-radius:12px; padding:1.5rem; max-width:400px; width:100%; box-shadow:0 4px 20px rgba(0,0,0,0.15);">
+            <h3 style="margin:0 0 1rem;">Teklifi e-posta ile gönder</h3>
+            <form method="post" action="{{ url_for('sales.teklif_eposta_gonder', teklif_no=teklif.teklif_no) }}">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                <div class="form-group" style="margin-bottom:1rem;">
+                    <label for="teklif-email-to">Alıcı e-posta adresi *</label>
+                    <input type="email" id="teklif-email-to" name="email" required value="{{ teklif.email or '' }}" placeholder="musteri@firma.com" style="width:100%; padding:0.5rem 0.75rem; border:1px solid #d1d5db; border-radius:8px;">
+                </div>
+                <div style="display:flex; gap:0.5rem; justify-content:flex-end;">
+                    <button type="button" class="btn btn-outline" data-teklif-email-cancel>İptal</button>
+                    <button type="submit" class="btn btn-primary">Gönder</button>
+                </div>
+            </form>
+        </div>
+    </div>
+    <div class="card">
+        <h2>{{ teklif.firma_adi }}</h2>
+        <table class="detail-table">
+            <tr><th>Teklif no</th><td>{{ teklif.teklif_no }}</td></tr>
+            <tr><th>Teklif tarihi</th><td>{{ teklif.teklif_tarihi.strftime('%d.%m.%Y') if teklif.teklif_tarihi else '-' }}</td></tr>
+            <tr><th>Firma adı</th><td>{{ teklif.firma_adi }}</td></tr>
+            <tr><th>Yetkilisi</th><td>{{ teklif.yetkilisi or '-' }}</td></tr>
+            <tr><th>Telefon</th><td>{{ teklif.telefon or '-' }}</td></tr>
+            <tr><th>E-posta</th><td>{{ teklif.email or '-' }}</td></tr>
+            <tr><th>Adres</th><td>{{ teklif.adres or '-' }}</td></tr>
+            <tr><th>Referans</th><td>{{ teklif.referans or '-' }}</td></tr>
+            <tr><th>Ödeme süresi</th><td>{{ teklif.odeme_suresi or '-' }}</td></tr>
+            <tr><th>Teklif geçerlilik tarihi</th><td>{{ teklif.teklif_gecerlilik_tarihi.strftime('%d.%m.%Y') if teklif.teklif_gecerlilik_tarihi else '-' }}</td></tr>
+            <tr><th>Teslimat zamanı</th><td>{{ teklif.teslimat_zamani or '-' }}</td></tr>
+            <tr><th>Hazırlayan</th><td>{{ teklif.hazirlayan.username if teklif.hazirlayan else '-' }}</td></tr>
+            <tr><th>Açıklama</th><td>{{ teklif.aciklama or '-' }}</td></tr>
+            <tr><th>Kur bilgisi</th><td>T.C. Merkez Bankası döviz satış kuru esas alınır.</td></tr>
+        </table>
+        <h3 class="form-section-title">Teklif edilen ürünler</h3>
+        {% set kalem_list = teklif.kalemler %}
+        {% if kalem_list %}
+        <div class="table-wrap">
+            <table class="data-table">
+                <thead>
+                    <tr>
+                        <th>#</th>
+                        <th>Marka</th>
+                        <th>Model</th>
+                        <th>Adet</th>
+                        <th>Para birimi</th>
+                        <th>Garanti</th>
+                        <th>KDV</th>
+                        <th>Birim fiyat</th>
+                        <th>Toplam</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for k in kalem_list %}
+                    <tr>
+                        <td>{{ loop.index }}</td>
+                        <td>{{ k.urun_marka or '-' }}</td>
+                        <td>{{ k.urun_model or '-' }}</td>
+                        <td>{{ k.adet }}</td>
+                        <td>{{ k.para_birimi or 'TL' }} ({{ k.para_birimi_sembol }})</td>
+                        <td>{{ k.garanti_suresi_metin }}</td>
+                        <td>{{ k.kdv_durum_metin }}</td>
+                        <td>{% if k.birim_fiyat is not none %}{{ "%.2f"|format(k.birim_fiyat|float) }} {{ k.para_birimi_sembol }}{% else %}-{% endif %}</td>
+                        <td>{% if k.toplam_fiyat is not none %}{{ "%.2f"|format(k.toplam_fiyat|float) }} {{ k.para_birimi_sembol }}{% else %}-{% endif %}</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+                <tfoot>
+                    <tr>
+                        <td colspan="8" style="text-align:right; font-weight:bold;">Genel toplam</td>
+                        <td style="font-weight:bold;">{{ teklif.toplam_ozet_metin }}</td>
+                    </tr>
+                </tfoot>
+            </table>
+        </div>
+        {% else %}
+        <table class="detail-table">
+            <tr><th>Marka</th><td>{{ teklif.urun_marka or '-' }}</td></tr>
+            <tr><th>Model</th><td>{{ teklif.urun_model or '-' }}</td></tr>
+            <tr><th>Adet</th><td>{{ teklif.adet }}</td></tr>
+            <tr><th>Birim fiyat</th><td>{% if teklif.birim_fiyat is not none %}{{ "%.2f"|format(teklif.birim_fiyat|float) }} {{ teklif.para_birimi_sembol }}{% else %}-{% endif %}</td></tr>
+            <tr><th>Toplam fiyat</th><td>{% if teklif.toplam_fiyat is not none %}{{ "%.2f"|format(teklif.toplam_fiyat|float) }} {{ teklif.para_birimi_sembol }}{% else %}-{% endif %}</td></tr>
+        </table>
+        {% endif %}
+    </div>
+</div>
+<script>
+(function() {
+    var btn = document.querySelector('[data-teklif-email-btn]');
+    var modal = document.getElementById('teklif-email-modal');
+    var cancel = document.querySelector('[data-teklif-email-cancel]');
+    if (btn && modal) {
+        btn.addEventListener('click', function() {
+            modal.style.display = 'flex';
+        });
+        cancel && cancel.addEventListener('click', function() {
+            modal.style.display = 'none';
+        });
+        modal.addEventListener('click', function(e) {
+            if (e.target === modal) modal.style.display = 'none';
+        });
+    }
+})();
+</script>
+{% endblock %}

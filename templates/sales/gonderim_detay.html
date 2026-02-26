@@ -1,0 +1,106 @@
+{% extends "base.html" %}
+{% block title %}Gönderim detayı - SER-CRM{% endblock %}
+{% block content %}
+<div class="container page">
+    <div class="page-header">
+        <h1>Gönderim detayı</h1>
+        <a href="{{ url_for('sales.index', tab='musteri_satis', page=return_page or 1) }}" class="btn btn-outline">← Gönderim geçmişine dön</a>
+    </div>
+    <div class="card">
+        {% set s = base_sale %}
+        <div class="detail-header-row">
+            <h2 class="detail-title">
+                <span class="detail-title-main">{{ s.musteri_adi }}</span>
+                <span class="pill pill-muted">{{ s.created_at.strftime('%d.%m.%Y %H:%M') }}</span>
+            </h2>
+            <span class="pill {% if s.tur == 'kiralama' %}pill-warning{% else %}pill-success{% endif %}">
+                {% if s.tur == 'kiralama' %}Kiralama{% else %}Satış{% endif %}
+            </span>
+        </div>
+
+        <div class="detail-grid">
+            <section class="detail-section">
+                <h3>Firma bilgileri</h3>
+                <table class="detail-table">
+                    <tr>
+                        <th>Firma</th>
+                        <td>{{ s.musteri_adi }}</td>
+                    </tr>
+                    <tr>
+                        <th>Yetkili kişi</th>
+                        <td>{{ s.customer.yetkili_kisi if s.customer and s.customer.yetkili_kisi else '—' }}</td>
+                    </tr>
+                    <tr>
+                        <th>Telefon</th>
+                        <td>{{ s.musteri_telefon or '—' }}</td>
+                    </tr>
+                    <tr>
+                        <th>E-posta</th>
+                        <td>{{ s.musteri_email or '—' }}</td>
+                    </tr>
+                    <tr>
+                        <th>Lokasyon / Proje</th>
+                        <td>{{ s.customer.lokasyon_proje if s.customer and s.customer.lokasyon_proje else 'Lokasyon / proje yok' }}</td>
+                    </tr>
+                    <tr>
+                        <th>Gönderim adresi</th>
+                        <td>{{ s.musteri_adres or '—' }}</td>
+                    </tr>
+                    <tr>
+                        <th>Not / açıklama</th>
+                        <td>{{ s.aciklama or '—' }}</td>
+                    </tr>
+                </table>
+            </section>
+
+            <section class="detail-section">
+                <h3>Ürünler</h3>
+                <p style="margin:0 0 0.5rem; font-size:0.9rem; color:var(--text-muted);">
+                    Toplam gönderilen ürün adedi:
+                    <strong>{{ toplam_adet }}</strong> {{ sales[0].inventory.birim if sales and sales[0].inventory and sales[0].inventory.birim else '' }}
+                </p>
+                <table class="detail-table">
+                    {% for sale in sales %}
+                    <tr>
+                        <th>Stok no</th>
+                        <td>{{ sale.inventory.stok_numarasi or '—' }}</td>
+                    </tr>
+                    <tr>
+                        <th>Ürün</th>
+                        <td>{{ sale.inventory.urun_adi }}</td>
+                    </tr>
+                    <tr>
+                        <th>Ürün grubu</th>
+                        <td>{{ sale.inventory.urun_grubu or '—' }}</td>
+                    </tr>
+                    <tr>
+                        <th>Marka / Model</th>
+                        <td>{{ sale.inventory.marka or '—' }} / {{ sale.inventory.model or '—' }}</td>
+                    </tr>
+                    <tr>
+                        <th>Gönderilen miktar</th>
+                        <td>{{ sale.miktar }} {{ sale.inventory.birim }}</td>
+                    </tr>
+                    <tr>
+                        <th>Seri numaraları</th>
+                        <td>
+                            {% if sale.sale_serials %}
+                                {% for seri in sale.sale_serials %}
+                                    {{ seri.seri_no }}{% if not loop.last %}, {% endif %}
+                                {% endfor %}
+                            {% else %}
+                                —
+                            {% endif %}
+                        </td>
+                    </tr>
+                    {% if not loop.last %}
+                    <tr><td colspan="2">&nbsp;</td></tr>
+                    {% endif %}
+                    {% endfor %}
+                </table>
+            </section>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
