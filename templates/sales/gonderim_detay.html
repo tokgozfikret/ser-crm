@@ -13,8 +13,8 @@
                 <span class="detail-title-main">{{ s.musteri_adi }}</span>
                 <span class="pill pill-muted">{{ s.created_at.strftime('%d.%m.%Y %H:%M') }}</span>
             </h2>
-            <span class="pill {% if s.tur == 'kiralama' %}pill-warning{% else %}pill-success{% endif %}">
-                {% if s.tur == 'kiralama' %}Kiralama{% else %}Satış{% endif %}
+            <span class="pill {% if s.tur == 'kiralama' %}pill-warning{% elif s.tur == 'demo' %}pill-info{% else %}pill-success{% endif %}">
+                {% if s.tur == 'kiralama' %}Kiralama{% elif s.tur == 'demo' %}Demo{% else %}Satış{% endif %}
             </span>
         </div>
 
@@ -22,6 +22,10 @@
             <section class="detail-section">
                 <h3>Firma bilgileri</h3>
                 <table class="detail-table">
+                    <tr>
+                        <th>Gönderim tarihi</th>
+                        <td>{{ s.created_at.strftime('%d.%m.%Y %H:%M') }}</td>
+                    </tr>
                     <tr>
                         <th>Firma</th>
                         <td>{{ s.musteri_adi }}</td>
@@ -54,11 +58,23 @@
             </section>
 
             <section class="detail-section">
-                <h3>Ürünler</h3>
+                <h3>Ürünler{% if s.tur != 'satis' %} ve geliş tarihleri{% endif %}</h3>
                 <p style="margin:0 0 0.5rem; font-size:0.9rem; color:var(--text-muted);">
                     Toplam gönderilen ürün adedi:
                     <strong>{{ toplam_adet }}</strong> {{ sales[0].inventory.birim if sales and sales[0].inventory and sales[0].inventory.birim else '' }}
                 </p>
+                {% set ns = namespace(pending=false) %}
+                {% if s.tur != 'satis' %}
+                    {% for sale in sales %}
+                        {% if sale.sale_serials %}
+                            {% for seri in sale.sale_serials %}{% if not seri.donus_tarihi %}{% set ns.pending = true %}{% endif %}{% endfor %}
+                        {% elif not sale.donus_tarihi %}
+                            {% set ns.pending = true %}
+                        {% endif %}
+                    {% endfor %}
+                <form method="post" action="{{ url_for('sales.gonderim_donus_detay', id=s.id) }}">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                {% endif %}
                 <table class="detail-table">
                     {% for sale in sales %}
                     <tr>
@@ -82,12 +98,37 @@
                         <td>{{ sale.miktar }} {{ sale.inventory.birim }}</td>
                     </tr>
                     <tr>
-                        <th>Seri numaraları</th>
+                        <th>Seri no{% if s.tur != 'satis' %} / Geliş tarihi{% endif %}</th>
                         <td>
                             {% if sale.sale_serials %}
+                                {% set pending_serials = sale.sale_serials | rejectattr('donus_tarihi') | list %}
+                                <div class="serial-donus-list">
+                                {% if s.tur != 'satis' and pending_serials %}
+                                    <label class="donus-check donus-master"><input type="checkbox" data-donus-master="sale-{{ sale.id }}"> Tümünü geldi olarak işaretle</label>
+                                {% endif %}
                                 {% for seri in sale.sale_serials %}
-                                    {{ seri.seri_no }}{% if not loop.last %}, {% endif %}
+                                    <div class="serial-donus-item">
+                                        <span class="serial-no">{{ seri.seri_no }}</span>
+                                        {% if s.tur != 'satis' %}
+                                            {% if seri.donus_tarihi %}
+                                            <span class="donus-locked">Geldi · {{ seri.donus_tarihi.strftime('%d.%m.%Y %H:%M') }}</span>
+                                            {% else %}
+                                            <label class="donus-check"><input type="checkbox" name="serial_geldi_{{ seri.id }}" value="1" data-donus-group="sale-{{ sale.id }}"> Geldi</label>
+                                            {% endif %}
+                                        {% endif %}
+                                    </div>
                                 {% endfor %}
+                                </div>
+                            {% elif s.tur != 'satis' %}
+                                <div class="serial-donus-item">
+                                    {% if sale.donus_tarihi %}
+                                    <span class="text-muted">Seri no yok — geliş:</span>
+                                    <span class="donus-locked">{{ sale.donus_tarihi.strftime('%d.%m.%Y %H:%M') }}</span>
+                                    {% else %}
+                                    <span class="text-muted">Seri no yok:</span>
+                                    <label class="donus-check"><input type="checkbox" name="line_geldi_{{ sale.id }}" value="1"> Geldi</label>
+                                    {% endif %}
+                                </div>
                             {% else %}
                                 —
                             {% endif %}
@@ -98,9 +139,31 @@
                     {% endif %}
                     {% endfor %}
                 </table>
+                {% if s.tur != 'satis' %}
+                {% if ns.pending %}
+                <div style="margin-top:0.75rem;">
+                    <button type="submit" class="btn btn-primary">Seçilenleri geldi olarak kaydet</button>
+                </div>
+                {% else %}
+                <p class="text-muted" style="margin-top:0.75rem;">Tüm ürünler geldi olarak işaretlendi.</p>
+                {% endif %}
+                </form>
+                {% endif %}
             </section>
         </div>
     </div>
 </div>
+<script>
+(function () {
+    document.querySelectorAll('input[data-donus-master]').forEach(function (master) {
+        var group = master.getAttribute('data-donus-master');
+        master.addEventListener('change', function () {
+            document.querySelectorAll('input[data-donus-group="' + group + '"]').forEach(function (cb) {
+                cb.checked = master.checked;
+            });
+        });
+    });
+})();
+</script>
 {% endblock %}
 

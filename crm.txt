@@ -1,0 +1,8 @@
+Tüm süreç şöyle olacak:
+1-)Cihaz sekreterliğe geldi. sekreter cihazların girişini yaptı. müşteriye bilgilendirme maili gitti.
+2-) Sekreter cihazları teknik servise gönderdi. Teknik servis ön inceleme yaptı ve cihazın arızaları şunlar şunlar diye sekreterliğe bildirdi.
+3-)sekreterlik, teknik servisin yapmış olduğu ön inceleme raporunu müşteri onayı için müşteriye gönderdi. bu ön inceleme raporu yeni oluşturacağımız müşteri paneline düştü ve müşteri bu panelde ön inceleme raporunu okudu. ayrıca ön inceleme raporunun müşteri paneline düştüğüne dair , müşteriye bilgilendirme maili gitti
+4-) müşteri bu ön inceleme raporunu onayladı veya onaylamadı. onaylarsa sekreterlik ekranına müşteri onayladı teknik servise gönderebilirsiniz. uyarısı geldi. onaylamazsa bu da sekreterlik ekranına düştü ve cihazı müşteri onaylamadı, cihazları hiçbir işlem yapmadan müşteriye gönder uyarısı çıktı.
+5-) müşteri onayladığı durumdasekreter tekrar teknik servise cihazları gönderdi.
+6-)Teknik servis cihazların arızalarını giderdi. sekreterliğe gönderdi.
+7-)Sekreterlik tamir edilen cihazları müşteriye gönderdi. bu hem müşteri panelinde göründü. hem de bilgilendirme maili gitti.

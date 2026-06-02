@@ -8,14 +8,14 @@
         <div class="header-actions">
             <a href="{{ url_for('sales.musteriler') }}" class="btn btn-outline">Firma Yönetimi</a>
             <a href="{{ url_for('sales.teklif_ekle') }}" class="btn btn-outline">+ Teklif ver</a>
-            <a href="{{ url_for('sales.musteriye_gonder') }}" class="btn btn-primary">Satış</a>
+            <a href="{{ url_for('sales.musteriye_gonder') }}" class="btn btn-outline">+ Satış-Kiralama</a>
             <a href="{{ url_for('sales.stok_ekle') }}" class="btn btn-outline">+ Stok ekle</a>
         </div>
     </div>
     <div class="card">
         <nav class="tabs">
             <a href="{{ url_for('sales.index', tab='envanter', q=arama|default(''), page=1, urun_grubu=secili_urun_grubu|default(''), marka=secili_marka|default(''), model=secili_model|default('')) }}" class="tab {% if aktif_tab == 'envanter' %}active{% endif %}">Depo stoğu (envanter)</a>
-            <a href="{{ url_for('sales.index', tab='musteri_satis', page=1) }}" class="tab {% if aktif_tab == 'musteri_satis' %}active{% endif %}">Firmaya gönderim geçmişi</a>
+            <a href="{{ url_for('sales.index', tab='musteri_satis', page=1) }}" class="tab {% if aktif_tab == 'musteri_satis' %}active{% endif %}">Malzeme Giriş-Çıkış Geçmişi</a>
             <a href="{{ url_for('sales.index', tab='teklif', page=1) }}" class="tab {% if aktif_tab == 'teklif' %}active{% endif %}">Teklif</a>
             <a href="{{ url_for('sales.index', tab='istatistik') }}" class="tab {% if aktif_tab == 'istatistik' %}active{% endif %}">İstatistikler</a>
         </nav>
@@ -173,24 +173,22 @@
         {% endif %}
 
         {% if aktif_tab == 'musteri_satis' %}
-        <h2>Firmaya gönderim geçmişi</h2>
-        <form method="get" class="search-form" style="margin-bottom:1rem;" id="musteri-satis-filter-form">
+        <h2>Malzeme Giriş-Çıkış Geçmişi</h2>
+        <form method="get" class="search-form filter-row" style="margin-bottom:1rem;" id="musteri-satis-filter-form">
             <input type="hidden" name="tab" value="musteri_satis">
-            <div class="form-grid-2">
-                <div class="form-group">
-                    <label for="tarih_baslangic">Başlangıç tarihi</label>
-                    <input type="date" id="tarih_baslangic" name="tarih_baslangic" value="{{ tarih_baslangic|default('') }}">
-                </div>
-                <div class="form-group">
-                    <label for="tarih_bitis">Bitiş tarihi</label>
-                    <input type="date" id="tarih_bitis" name="tarih_bitis" value="{{ tarih_bitis|default('') }}">
-                </div>
+            <div class="form-group">
+                <label for="tarih_baslangic">Başlangıç tarihi</label>
+                <input type="date" id="tarih_baslangic" name="tarih_baslangic" value="{{ tarih_baslangic|default('') }}">
             </div>
             <div class="form-group">
-                <label for="musteri_ara">Firma adı</label>
-                <input type="text" id="musteri_ara" name="musteri_ara" value="{{ musteri_ara|default('') }}" placeholder="Firma adına göre filtrele" oninput="if(!this.value.trim())this.form.submit()">
+                <label for="tarih_bitis">Bitiş tarihi</label>
+                <input type="date" id="tarih_bitis" name="tarih_bitis" value="{{ tarih_bitis|default('') }}">
             </div>
-            <div class="form-actions" style="margin-top:0.5rem;">
+            <div class="form-group filter-search">
+                <label for="musteri_ara">Arama</label>
+                <input type="text" id="musteri_ara" name="musteri_ara" value="{{ musteri_ara|default('') }}" placeholder="Firma adı, marka, model veya seri numarası" oninput="if(!this.value.trim())this.form.submit()">
+            </div>
+            <div class="form-actions">
                 <button type="submit" class="btn btn-primary">Filtrele</button>
                 <a href="{{ url_for('sales.index', tab='musteri_satis', page=1) }}" class="btn btn-outline">Filtreleri temizle</a>
             </div>
@@ -250,7 +248,9 @@
             <table class="data-table">
                 <thead>
                     <tr>
-                        <th>Tarih</th>
+                        <th>Gönderim tarihi</th>
+                        <th>Tür</th>
+                        <th>Geliş tarihi</th>
                         <th>Firma</th>
                         <th>Telefon</th>
                         <th>E-posta</th>
@@ -261,6 +261,34 @@
                     {% for s in sale_pagination.items %}
                     <tr>
                         <td>{{ s.created_at.strftime('%d.%m.%Y %H:%M') }}</td>
+                        <td>
+                            <span class="pill {% if s.tur == 'kiralama' %}pill-warning{% elif s.tur == 'demo' %}pill-info{% else %}pill-success{% endif %}">
+                                {% if s.tur == 'kiralama' %}Kiralama{% elif s.tur == 'demo' %}Demo{% else %}Satış{% endif %}
+                            </span>
+                        </td>
+                        <td>
+                            {% if s.tur == 'satis' %}
+                                <span class="text-muted">—</span>
+                            {% elif s.donus_has_serials %}
+                                {% if s.donus_returned == s.donus_total %}
+                                    <span class="pill pill-success">Tümü geldi</span>
+                                    {% if s.donus_son_tarih %}<br><small>{{ s.donus_son_tarih.strftime('%d.%m.%Y %H:%M') }}</small>{% endif %}
+                                {% elif s.donus_returned > 0 %}
+                                    <span class="pill pill-warning">{{ s.donus_returned }}/{{ s.donus_total }} geldi</span>
+                                    <br><small><a href="{{ url_for('sales.gonderim_detay', id=s.id, page=sale_pagination.page) }}">Seri bazlı işaretle</a></small>
+                                {% else %}
+                                    <span class="pill pill-muted">Bekleniyor</span>
+                                    <br><small><a href="{{ url_for('sales.gonderim_detay', id=s.id, page=sale_pagination.page) }}">Seri bazlı işaretle</a></small>
+                                {% endif %}
+                            {% elif s.donus_tarihi %}
+                                <span class="donus-locked">{{ s.donus_tarihi.strftime('%d.%m.%Y %H:%M') }}</span>
+                            {% else %}
+                            <form method="post" action="{{ url_for('sales.gonderim_donus', id=s.id) }}" class="inline-date-form">
+                                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                                <button type="submit" class="btn btn-sm">Geldi</button>
+                            </form>
+                            {% endif %}
+                        </td>
                         <td>
                             {{ s.musteri_adi }}
                             {% if s.customer and s.customer.yetkili_kisi %}<br><small>Yetkili: {{ s.customer.yetkili_kisi }}</small>{% endif %}
@@ -284,23 +312,21 @@
 
         {% if aktif_tab == 'teklif' %}
         <h2>Teklif geçmişi</h2>
-        <form method="get" class="search-form" style="margin-bottom:1rem;" id="teklif-filter-form">
+        <form method="get" class="search-form filter-row" style="margin-bottom:1rem;" id="teklif-filter-form">
             <input type="hidden" name="tab" value="teklif">
-            <div class="form-grid-2">
-                <div class="form-group">
-                    <label for="tkl_tarih_baslangic">Başlangıç tarihi</label>
-                    <input type="date" id="tkl_tarih_baslangic" name="tkl_tarih_baslangic" value="{{ tkl_tarih_baslangic|default('') }}">
-                </div>
-                <div class="form-group">
-                    <label for="tkl_tarih_bitis">Bitiş tarihi</label>
-                    <input type="date" id="tkl_tarih_bitis" name="tkl_tarih_bitis" value="{{ tkl_tarih_bitis|default('') }}">
-                </div>
+            <div class="form-group">
+                <label for="tkl_tarih_baslangic">Başlangıç tarihi</label>
+                <input type="date" id="tkl_tarih_baslangic" name="tkl_tarih_baslangic" value="{{ tkl_tarih_baslangic|default('') }}">
             </div>
             <div class="form-group">
+                <label for="tkl_tarih_bitis">Bitiş tarihi</label>
+                <input type="date" id="tkl_tarih_bitis" name="tkl_tarih_bitis" value="{{ tkl_tarih_bitis|default('') }}">
+            </div>
+            <div class="form-group filter-search">
                 <label for="tkl_q">Teklif no, firma veya referans ara</label>
                 <input type="text" id="tkl_q" name="tkl_q" value="{{ tkl_ara|default('') }}" placeholder="Teklif no, firma adı, referans..." class="search-input" oninput="if(!this.value.trim())this.form.submit()">
             </div>
-            <div class="form-actions" style="margin-top:0.5rem;">
+            <div class="form-actions">
                 <button type="submit" class="btn btn-primary">Filtrele</button>
                 <a href="{{ url_for('sales.index', tab='teklif', page=1) }}" class="btn btn-outline">Filtreleri temizle</a>
             </div>
@@ -346,19 +372,17 @@
 
         {% if aktif_tab == 'istatistik' %}
         <h2>Satış istatistikleri</h2>
-        <form method="get" class="search-form" style="margin-bottom:1rem;">
+        <form method="get" class="search-form filter-row" style="margin-bottom:1rem;">
             <input type="hidden" name="tab" value="istatistik">
-            <div class="form-grid-2">
-                <div class="form-group">
-                    <label for="ist_tarih_baslangic">Başlangıç tarihi</label>
-                    <input type="date" id="ist_tarih_baslangic" name="ist_baslangic" value="{{ ist_tarih_baslangic|default('') }}">
-                </div>
-                <div class="form-group">
-                    <label for="ist_tarih_bitis">Bitiş tarihi</label>
-                    <input type="date" id="ist_tarih_bitis" name="ist_bitis" value="{{ ist_tarih_bitis|default('') }}">
-                </div>
+            <div class="form-group">
+                <label for="ist_tarih_baslangic">Başlangıç tarihi</label>
+                <input type="date" id="ist_tarih_baslangic" name="ist_baslangic" value="{{ ist_tarih_baslangic|default('') }}">
             </div>
-            <div class="form-actions" style="margin-top:0.5rem;">
+            <div class="form-group">
+                <label for="ist_tarih_bitis">Bitiş tarihi</label>
+                <input type="date" id="ist_tarih_bitis" name="ist_bitis" value="{{ ist_tarih_bitis|default('') }}">
+            </div>
+            <div class="form-actions">
                 <button type="submit" class="btn btn-primary">Filtrele</button>
                 <a href="{{ url_for('sales.index', tab='istatistik') }}" class="btn btn-outline">Filtreleri temizle</a>
             </div>
@@ -378,8 +402,8 @@
                 <div class="stat-value">{{ stats.total_customers }}</div>
             </div>
             <div class="stat-card">
-                <div class="stat-label">Satış / Kiralama</div>
-                <div class="stat-value">{{ stats.total_sales }} / {{ stats.total_rentals }}</div>
+                <div class="stat-label">Satış / Kiralama / Demo</div>
+                <div class="stat-value">{{ stats.total_sales }} / {{ stats.total_rentals }} / {{ stats.total_demos }}</div>
             </div>
         </div>
 
@@ -556,9 +580,9 @@
             }
 
             // Satış türü
-            var stLabelsMap = { 'satis': 'Satış', 'kiralama': 'Kiralama' };
+            var stLabelsMap = { 'satis': 'Satış', 'kiralama': 'Kiralama', 'demo': 'Demo' };
             var stLabels = [], stData = [], stColors = [];
-            var stColorMap = { 'satis': '#3b82f6', 'kiralama': '#facc15' };
+            var stColorMap = { 'satis': '#3b82f6', 'kiralama': '#facc15', 'demo': '#0ea5e9' };
             Object.keys(stLabelsMap).forEach(function (k) {
                 var v = (saleTypeCounts || {})[k] || 0;
                 if (v > 0) { stLabels.push(stLabelsMap[k]); stData.push(v); stColors.push(stColorMap[k] || '#6b7280'); }

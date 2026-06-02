@@ -183,12 +183,13 @@ class Sale(db.Model):
     inventory_id = db.Column(db.Integer, db.ForeignKey('depo_stok.id'), nullable=False)
     customer_id = db.Column(db.Integer, db.ForeignKey('musteriler.id'), nullable=True)
     miktar = db.Column(db.Integer, nullable=False)
-    tur = db.Column(db.String(20), nullable=False, default='satis')  # satis / kiralama
+    tur = db.Column(db.String(20), nullable=False, default='satis')  # satis / kiralama / demo
     musteri_adi = db.Column(db.String(200), nullable=False)
     musteri_adres = db.Column(db.String(500))
     musteri_telefon = db.Column(db.String(50))
     musteri_email = db.Column(db.String(120))
     aciklama = db.Column(db.String(500))
+    donus_tarihi = db.Column(db.DateTime, nullable=True)  # Kiralama/demo ürünlerin geri geliş zaman damgası (seri yoksa satır bazlı)
     created_at = db.Column(db.DateTime, default=datetime.now)
     sale_serials = db.relationship('SaleSerial', backref='sale', lazy='select', cascade='all, delete-orphan')
     customer = db.relationship('Customer', backref='sales', lazy='joined')
@@ -321,3 +322,4 @@ class SaleSerial(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     sale_id = db.Column(db.Integer, db.ForeignKey('satis_gonderim.id'), nullable=False)
     seri_no = db.Column(db.String(100), nullable=False)
+    donus_tarihi = db.Column(db.DateTime, nullable=True)  # Bu seri numaralı ürünün geri geliş zaman damgası (checkbox ile kaydedilir)

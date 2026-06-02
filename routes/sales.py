@@ -136,7 +136,7 @@ def index():
         tarih_baslangic, tarih_bitis, start_dt, end_dt = _parse_date_range('tarih')
         musteri_ara = request.args.get('musteri_ara', '').strip() or None
 
-        sorgu = Sale.query.options(joinedload(Sale.inventory))
+        sorgu = Sale.query.options(joinedload(Sale.inventory), selectinload(Sale.sale_serials))
         # Başlangıç > Bitiş ise uyar ve filtreleri uygulama.
         if start_dt and end_dt and start_dt > end_dt:
             flash('Başlangıç tarihi, bitiş tarihinden sonra olamaz.', 'error')
@@ -147,7 +147,16 @@ def index():
                 sorgu = sorgu.filter(Sale.created_at <= end_dt)
         if musteri_ara:
             pattern = f'%{musteri_ara}%'
-            sorgu = sorgu.filter(Sale.musteri_adi.ilike(pattern))
+            sorgu = sorgu.filter(or_(
+                Sale.musteri_adi.ilike(pattern),
+                Sale.inventory.has(or_(
+                    Inventory.urun_adi.ilike(pattern),
+                    Inventory.marka.ilike(pattern),
+                    Inventory.model.ilike(pattern),
+                    Inventory.stok_numarasi.ilike(pattern),
+                )),
+                Sale.sale_serials.any(SaleSerial.seri_no.ilike(pattern)),
+            ))
 
         # Varsayılan sıralama: en yeni gönderim en üstte (tarih azalan)
         all_sales = sorgu.order_by(Sale.created_at.desc(), Sale.id.desc()).all()
@@ -158,10 +167,26 @@ def index():
         for s in all_sales:
             minute_ts = s.created_at.replace(second=0, microsecond=0)
             key = (s.musteri_adi, s.musteri_telefon, s.musteri_email, s.musteri_adres, minute_ts)
-            if key not in grouped:
-                grouped[key] = s
+            grouped.setdefault(key, []).append(s)
 
-        grouped_list = list(grouped.values())
+        # Her gönderim grubu için temsilci satır + seri bazlı geliş durumu özeti.
+        grouped_list = []
+        for members in grouped.values():
+            rep = members[0]
+            total_serials = 0
+            returned_serials = 0
+            return_dates = []
+            for m in members:
+                for ss in m.sale_serials:
+                    total_serials += 1
+                    if ss.donus_tarihi:
+                        returned_serials += 1
+                        return_dates.append(ss.donus_tarihi)
+            rep.donus_has_serials = total_serials > 0
+            rep.donus_total = total_serials
+            rep.donus_returned = returned_serials
+            rep.donus_son_tarih = max(return_dates) if return_dates else None
+            grouped_list.append(rep)
         total = len(grouped_list)
         start = (page - 1) * per_page
         end = start + per_page
@@ -273,19 +298,22 @@ def index():
         total_customers = stats_query.with_entities(Sale.musteri_adi, Sale.musteri_telefon, Sale.musteri_email).distinct().count()
         total_sales = stats_query.filter(Sale.tur == 'satis').count()
         total_rentals = stats_query.filter(Sale.tur == 'kiralama').count()
+        total_demos = stats_query.filter(Sale.tur == 'demo').count()
 
-        # Günlük zaman serisi (sonuçlar: tarih, toplam_qty, satis_qty, kiralama_qty)
+        # Günlük zaman serisi (sonuçlar: tarih, toplam_qty, satis_qty, kiralama_qty, demo_qty)
         date_agg = stats_query.with_entities(
             db.func.date(Sale.created_at).label('g'),
             db.func.sum(Sale.miktar).label('toplam'),
             db.func.sum(db.case((Sale.tur == 'satis', Sale.miktar), else_=0)).label('satis'),
             db.func.sum(db.case((Sale.tur == 'kiralama', Sale.miktar), else_=0)).label('kiralama'),
+            db.func.sum(db.case((Sale.tur == 'demo', Sale.miktar), else_=0)).label('demo'),
         ).group_by('g').order_by('g').all()
         time_series = [{
             'tarih': row.g,
             'toplam': int(row.toplam or 0),
             'satis': int(row.satis or 0),
             'kiralama': int(row.kiralama or 0),
+            'demo': int(row.demo or 0),
         } for row in date_agg]
 
         # En çok gönderilen ürünler (ilk 10)
@@ -536,6 +564,7 @@ def index():
             'total_customers': int(total_customers or 0),
             'total_sales': total_sales,
             'total_rentals': total_rentals,
+            'total_demos': total_demos,
             'time_series': time_series,
             'top_products': top_products_data,
             'top_groups': top_groups_data,
@@ -868,7 +897,7 @@ def musteriye_gonder():
         seri_numaralari_raw = request.form.getlist('seri_numaralari')
         customer_id_raw = request.form.get('customer_id', '').strip() or None
         islem_turu = request.form.get('islem_turu', 'satis')
-        if islem_turu not in ('satis', 'kiralama'):
+        if islem_turu not in ('satis', 'kiralama', 'demo'):
             islem_turu = 'satis'
         musteri_adi = request.form.get('musteri_adi', '').strip()
         musteri_adres = request.form.get('musteri_adres', '').strip() or None
@@ -1032,6 +1061,100 @@ def gonderim_detay(id):
                            base_sale=base_sale,
                            toplam_adet=toplam_adet,
                            return_page=page)
+
+
+@sales_bp.route('/gonderim/<int:id>/donus', methods=['POST'])
+@login_required
+@sales_required
+def gonderim_donus(id):
+    """Kiralama/demo gönderimini 'geldi' olarak işaretle; geliş zaman damgasını otomatik kaydet.
+
+    Zaman damgası, aynı gönderim oturumundaki (aynı firma + aynı dakika) tüm satırlara uygulanır.
+    Tarih elle girilmez; sunucu saati (zaman damgası) kullanılır ve bir kez kaydedilince değişmez.
+    """
+    from datetime import timedelta
+    base_sale = Sale.query.get_or_404(id)
+
+    minute_ts = base_sale.created_at.replace(second=0, microsecond=0)
+    next_minute = minute_ts + timedelta(minutes=1)
+    group = Sale.query.filter(
+        Sale.musteri_adi == base_sale.musteri_adi,
+        Sale.musteri_telefon == base_sale.musteri_telefon,
+        Sale.musteri_email == base_sale.musteri_email,
+        Sale.musteri_adres == base_sale.musteri_adres,
+        Sale.created_at >= minute_ts,
+        Sale.created_at < next_minute,
+    ).all()
+    # Geliş zaman damgası bir kez kaydedildikten sonra değiştirilemez; sadece boş olanlar doldurulur.
+    # Gelen kiralama/demo ürünlerin miktarı depo stoğuna geri eklenir.
+    now_ts = datetime.now()
+    updated = 0
+    eklenen_adet = 0
+    for s in group:
+        if s.donus_tarihi is None:
+            s.donus_tarihi = now_ts
+            if s.inventory is not None:
+                s.inventory.miktar = (s.inventory.miktar or 0) + (s.miktar or 0)
+                eklenen_adet += s.miktar or 0
+            updated += 1
+    if updated == 0:
+        flash('Bu gönderim zaten geldi olarak işaretlenmiş, değiştirilemez.', 'error')
+        return redirect(request.referrer or url_for('sales.index', tab='musteri_satis'))
+    db.session.commit()
+    log_event('sales', 'shipment_return_mark', extra=f'sale_id={id} ts={now_ts.isoformat()} stok_eklenen={eklenen_adet}')
+    flash(f'Gönderim geldi olarak işaretlendi. {eklenen_adet} adet depo stoğuna eklendi.', 'success')
+    return redirect(request.referrer or url_for('sales.index', tab='musteri_satis'))
+
+
+@sales_bp.route('/gonderim/<int:id>/donus-detay', methods=['POST'])
+@login_required
+@sales_required
+def gonderim_donus_detay(id):
+    """Detay sayfasından seri numarası bazlı (seri yoksa satır bazlı) 'geldi' işaretlerini kaydet.
+
+    İşaretlenen her seri/satır için sunucu saati (zaman damgası) geliş tarihi olarak yazılır.
+    Tarih elle girilmez ve bir kez kaydedilince değiştirilemez (işaret kaldırılamaz).
+    """
+    from datetime import timedelta
+    base_sale = Sale.query.get_or_404(id)
+    minute_ts = base_sale.created_at.replace(second=0, microsecond=0)
+    next_minute = minute_ts + timedelta(minutes=1)
+    group = Sale.query.options(selectinload(Sale.sale_serials)).filter(
+        Sale.musteri_adi == base_sale.musteri_adi,
+        Sale.musteri_telefon == base_sale.musteri_telefon,
+        Sale.musteri_email == base_sale.musteri_email,
+        Sale.musteri_adres == base_sale.musteri_adres,
+        Sale.created_at >= minute_ts,
+        Sale.created_at < next_minute,
+    ).all()
+
+    # Yalnızca henüz geliş tarihi olmayan (None) ve checkbox'ı işaretlenmiş seri/satırlar güncellenir.
+    # Her gelen seri 1 adet, seri numarasız satır ise miktarı kadar depo stoğuna geri eklenir.
+    now_ts = datetime.now()
+    to_mark = []  # (obj, inventory, qty)
+    for sale in group:
+        if sale.sale_serials:
+            for seri in sale.sale_serials:
+                if seri.donus_tarihi is None and f'serial_geldi_{seri.id}' in request.form:
+                    to_mark.append((seri, sale.inventory, 1))
+        else:
+            if sale.donus_tarihi is None and f'line_geldi_{sale.id}' in request.form:
+                to_mark.append((sale, sale.inventory, sale.miktar or 0))
+
+    if not to_mark:
+        flash('İşaretlenmiş yeni bir ürün yok. Daha önce gelen ürünler değiştirilemez.', 'error')
+        return redirect(url_for('sales.gonderim_detay', id=id))
+
+    eklenen_adet = 0
+    for obj, inv, qty in to_mark:
+        obj.donus_tarihi = now_ts
+        if inv is not None and qty:
+            inv.miktar = (inv.miktar or 0) + qty
+            eklenen_adet += qty
+    db.session.commit()
+    log_event('sales', 'shipment_return_mark_serial', extra=f'sale_id={id} adet={len(to_mark)} ts={now_ts.isoformat()} stok_eklenen={eklenen_adet}')
+    flash(f'{len(to_mark)} ürün geldi olarak işaretlendi. {eklenen_adet} adet depo stoğuna eklendi.', 'success')
+    return redirect(url_for('sales.gonderim_detay', id=id))
 
 
 @sales_bp.route('/gonderim/<int:id>/sil', methods=['POST'])

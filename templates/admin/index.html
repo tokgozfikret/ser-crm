@@ -354,12 +354,12 @@
         ]);
     }
 
-    // Satış türü – satis / kiralama
-    var saleLabelsMap = { 'satis': 'Satış', 'kiralama': 'Kiralama' };
+    // Satış türü – satis / kiralama / demo
+    var saleLabelsMap = { 'satis': 'Satış', 'kiralama': 'Kiralama', 'demo': 'Demo' };
     var saleLabels = [];
     var saleData = [];
     var saleColors = [];
-    var saleColorMap = { 'satis': '#3b82f6', 'kiralama': '#facc15' };
+    var saleColorMap = { 'satis': '#3b82f6', 'kiralama': '#facc15', 'demo': '#0ea5e9' };
     Object.keys(saleLabelsMap).forEach(function (k) {
         var v = (saleTypeCounts || {})[k] || 0;
         if (v > 0) {

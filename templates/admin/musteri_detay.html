@@ -83,7 +83,7 @@
                         <td>{{ s.id }}</td>
                         <td>{{ s.inventory.urun_adi if s.inventory else '-' }}</td>
                         <td>{% if s.inventory %}{{ (s.inventory.marka or '') }} {{ (s.inventory.model or '') }}{% else %}-{% endif %}</td>
-                        <td><span class="badge {{ 'badge-success' if s.tur == 'satis' else 'badge-info' }}">{{ 'Satış' if s.tur == 'satis' else 'Kiralama' }}</span></td>
+                        <td><span class="badge {{ 'badge-success' if s.tur == 'satis' else ('badge-warning' if s.tur == 'kiralama' else 'badge-info') }}">{{ 'Satış' if s.tur == 'satis' else ('Kiralama' if s.tur == 'kiralama' else 'Demo') }}</span></td>
                         <td>{{ s.miktar }}</td>
                         <td>{{ s.created_at.strftime('%d.%m.%Y %H:%M') if s.created_at else '-' }}</td>
                     </tr>

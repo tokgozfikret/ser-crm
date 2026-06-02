@@ -7,3 +7,4 @@ __pycache__/
 teknik_servis.db
 logs/
 instance/
+secret_key.txt

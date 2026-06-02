@@ -88,6 +88,8 @@ def init_db():
             'ALTER TABLE satis_gonderim ADD COLUMN musteri_email VARCHAR(120)',
             'ALTER TABLE satis_gonderim ADD COLUMN customer_id INTEGER',
             'ALTER TABLE satis_gonderim ADD COLUMN tur VARCHAR(20) DEFAULT "satis"',
+            'ALTER TABLE satis_gonderim ADD COLUMN donus_tarihi DATE',
+            'ALTER TABLE satis_seri ADD COLUMN donus_tarihi DATE',
             'ALTER TABLE musteriler ADD COLUMN lokasyon_proje VARCHAR(200)',
             'ALTER TABLE musteriler ADD COLUMN yetkili_kisi VARCHAR(200)',
             'ALTER TABLE devices ADD COLUMN on_inceleme_sekreterlikte_at DATETIME',

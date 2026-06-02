@@ -223,6 +223,17 @@ body { margin: 0; font-family: 'Segoe UI', system-ui, sans-serif; background: va
 .checkbox-label { display: inline-flex; align-items: center; gap: 0.5rem; cursor: pointer; font-weight: 500; margin-bottom: 0.25rem; }
 .checkbox-label input[type="checkbox"] { margin: 0; }
 .text-muted { color: var(--text-muted); font-size: 0.85rem; }
+.inline-date-form { display: flex; align-items: center; gap: 0.35rem; flex-wrap: nowrap; }
+.inline-date-form input[type="date"] { padding: 0.25rem 0.4rem; font-size: 0.85rem; }
+.serial-donus-list { display: flex; flex-direction: column; gap: 0.4rem; }
+.serial-donus-item { display: flex; align-items: center; gap: 0.5rem; flex-wrap: wrap; }
+.serial-donus-item .serial-no { font-family: monospace; font-weight: 600; min-width: 120px; }
+.serial-donus-item input[type="date"] { padding: 0.25rem 0.4rem; font-size: 0.85rem; }
+.donus-locked { font-weight: 600; color: #065f46; }
+.donus-locked small { font-weight: 400; color: var(--text-muted); }
+.donus-check { display: inline-flex; align-items: center; gap: 0.35rem; font-size: 0.9rem; cursor: pointer; }
+.donus-check input[type="checkbox"] { width: 1rem; height: 1rem; }
+.donus-master { font-weight: 600; margin-bottom: 0.25rem; }
 .form-inline { display: flex; gap: 0.5rem; flex-wrap: wrap; align-items: center; }
 
 .header-actions { display: flex; gap: 0.5rem; flex-wrap: wrap; }
@@ -255,6 +266,15 @@ body { margin: 0; font-family: 'Segoe UI', system-ui, sans-serif; background: va
     margin-bottom: 1.25rem;
     align-items: center;
     flex-wrap: wrap;
+}
+/* Tarih + arama + Filtrele/Filtreleri temizle butonlarını tek hizada tutar */
+.search-form.filter-row { align-items: flex-end; }
+.search-form.filter-row .form-group { margin-bottom: 0; }
+.search-form.filter-row .filter-search { flex: 1; min-width: 200px; }
+.search-form.filter-row .form-actions {
+    margin: 0;
+    padding: 0;
+    border-top: none;
 }
 .search-form-inline .search-form-date-group {
     display: inline-flex;
